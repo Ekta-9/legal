@@ -103,3 +103,52 @@ async def test_simplify_clauses_batches_across_multiple_calls(fake_groq):
     assert dropped == []
     assert len(simplified) == 14
     assert len(fake_groq.prompts) == 3  # ceil(14 / 6)
+
+
+@pytest.mark.asyncio
+async def test_cache_hit_never_calls_client(fake_groq, tmp_path):
+    from app.cache.store import CacheStore
+
+    cache = CacheStore(tmp_path / "cache.sqlite3")
+    cache.put(CLAUSES[0].text, "Cached simplification.", self_check=True)
+
+    simplified, dropped = await simplify_clauses(CLAUSES, fake_groq, cache=cache)
+
+    assert dropped == []
+    by_id = {s.id: s for s in simplified}
+    assert by_id["clause_1"].simplified == "Cached simplification."
+    assert by_id["clause_1"].self_check is True
+    assert by_id["clause_2"].simplified.startswith("SIMPLIFIED:")
+    # only clause_2 (the cache miss) should have gone to the LLM
+    assert len(fake_groq.prompts) == 1
+    assert "clause_2" in fake_groq.prompts[0]
+    assert "clause_1" not in fake_groq.prompts[0]
+
+
+@pytest.mark.asyncio
+async def test_cache_miss_writes_through_after_llm_call(fake_groq, tmp_path):
+    from app.cache.store import CacheStore
+
+    cache = CacheStore(tmp_path / "cache.sqlite3")
+    assert cache.get(CLAUSES[0].text) is None
+
+    await simplify_clauses(CLAUSES, fake_groq, cache=cache)
+
+    hit = cache.get(CLAUSES[0].text)
+    assert hit is not None
+    assert hit["simplified"].startswith("SIMPLIFIED:")
+
+
+@pytest.mark.asyncio
+async def test_second_run_with_full_cache_makes_zero_llm_calls(fake_groq, tmp_path):
+    from app.cache.store import CacheStore
+
+    cache = CacheStore(tmp_path / "cache.sqlite3")
+    await simplify_clauses(CLAUSES, fake_groq, cache=cache)
+    assert len(fake_groq.prompts) == 1  # first run: one batch call
+
+    simplified, dropped = await simplify_clauses(CLAUSES, fake_groq, cache=cache)
+
+    assert dropped == []
+    assert len(simplified) == 2
+    assert len(fake_groq.prompts) == 1  # unchanged — second run made no new calls

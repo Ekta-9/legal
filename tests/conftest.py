@@ -43,10 +43,16 @@ def fake_groq():
 
 
 @pytest.fixture
-def with_fake_groq(fake_groq):
-    """Points the background job pipeline at the fake client so integration
-    tests never touch the network or need a real API key.
+def with_fake_groq(fake_groq, tmp_path):
+    """Points the background job pipeline at the fake client and an isolated
+    per-test cache store, so integration tests never touch the network, need
+    a real API key, or leak cache state into the repo's data/ dir or each
+    other.
     """
+    from app.cache.store import CacheStore
+
     pipeline_module.set_client(fake_groq)
+    pipeline_module.set_cache_store(CacheStore(tmp_path / "test_cache.sqlite3"))
     yield fake_groq
     pipeline_module.set_client(None)
+    pipeline_module.set_cache_store(None)

@@ -14,6 +14,11 @@ class CompletesPrompts(Protocol):
     async def complete(self, prompt: str) -> str: ...
 
 
+class ClauseCache(Protocol):
+    def get(self, text: str) -> dict | None: ...
+    def put(self, text: str, simplified: str, self_check: bool, heading: str | None = None) -> None: ...
+
+
 def build_prompt(batch: list[Clause]) -> str:
     items = [{"clause_id": c.id, "text": c.text} for c in batch]
     return (
@@ -78,6 +83,7 @@ async def simplify_clauses(
     client: CompletesPrompts,
     batch_size: int = GROQ_BATCH_SIZE,
     on_batch_complete: BatchCallback | None = None,
+    cache: ClauseCache | None = None,
 ) -> tuple[list[SimplifiedClause], list[str]]:
     """Batches clauses, sends each batch to `client`, and merges results.
     Concurrency across batches is bounded by the client's own semaphore.
@@ -85,19 +91,45 @@ async def simplify_clauses(
     `on_batch_complete`, if given, fires as each batch finishes (not just at
     the end) so a caller can stream partial progress — e.g. the job manager
     rendering clauses as they complete rather than waiting for the whole doc.
+
+    `cache`, if given, is checked before every clause is sent to the LLM and
+    written through after each batch — cache hits never touch `client` at all.
     """
-    batches = batch_items(clauses, batch_size)
+    to_process: list[Clause] = []
+    cached_simplified: list[SimplifiedClause] = []
+    for clause in clauses:
+        hit = cache.get(clause.text) if cache is not None else None
+        if hit is not None:
+            cached_simplified.append(
+                SimplifiedClause(
+                    id=clause.id,
+                    heading=clause.heading,
+                    original=clause.text,
+                    simplified=hit["simplified"],
+                    self_check=hit["self_check"],
+                )
+            )
+        else:
+            to_process.append(clause)
+
+    if cached_simplified and on_batch_complete is not None:
+        on_batch_complete(cached_simplified, [])
+
+    batches = batch_items(to_process, batch_size)
 
     async def process(batch: list[Clause]) -> tuple[list[SimplifiedClause], list[str]]:
         raw = await client.complete(build_prompt(batch))
-        result = parse_batch_response(raw, batch)
+        simplified, dropped = parse_batch_response(raw, batch)
+        if cache is not None:
+            for s in simplified:
+                cache.put(s.original, s.simplified, s.self_check, s.heading)
         if on_batch_complete is not None:
-            on_batch_complete(*result)
-        return result
+            on_batch_complete(simplified, dropped)
+        return simplified, dropped
 
     results = await asyncio.gather(*(process(batch) for batch in batches))
 
-    all_simplified: list[SimplifiedClause] = []
+    all_simplified: list[SimplifiedClause] = list(cached_simplified)
     all_dropped: list[str] = []
     for simplified, dropped in results:
         all_simplified.extend(simplified)

@@ -58,17 +58,35 @@ Running record of what was actually built per phase, decisions/deviations from `
 
 **Decisions/notes:**
 - Verified manually against the **actual running server** (not just mocked tests): static assets serve, upload → poll → result round-trips, and — importantly — with no `GROQ_API_KEY` configured, a real upload reaches `status: "failed"` with a readable error (`"simplification failed: Connection error."`) instead of crashing the server or hanging. This confirms `pipeline.py`'s exception handling works against a real network failure, not just the mocked-failure path in tests.
-- Full **live** simplification (actually calling Groq and seeing real simplified text in the browser) is still unverified — pending a `GROQ_API_KEY`. Everything else about the spine is demoable today with the fake/mocked client.
+- **Update (live-verified):** with a real `GROQ_API_KEY` added to `.env`, both `pytest -m live` and a real `sample_clean.pdf` upload through the running server round-tripped successfully — real Groq calls, real simplified text, `status: "done"`, all 3 clauses returned correctly. The spine is fully demoable end-to-end, not just against mocks.
+- **Quality note (not a bug):** the model occasionally rewrites a clause heading's number (e.g. "1. Definitions" came back as "2. Definitions" inside the simplified text) — a prompt-fidelity nit worth tightening later (e.g. explicitly instruct "preserve the heading number verbatim"), and exactly the kind of thing the Phase 5 eval harness (`eval/golden_set.json` + `run_eval.py`) is meant to catch systematically rather than via one-off manual spot checks.
 - The `⚠` badge and "retry-once-then-badge" verification-failure *behavior* (`PLANNING.md` §3) is only partially here: the badge renders if `self_check` is true, but the **one-retry-before-badging rule** is explicitly a Phase 5 task (`verify.py`) and hasn't been built yet — right now a flagged clause is badged immediately, no retry.
 
 **Tests:** `test_job_manager.py` (lifecycle incl. failure path), `integration/test_upload_flow.py` (paste + file upload, 400 on empty, 404 on unknown job, scanned-PDF → failed status), `integration/test_end_to_end.py` (PDF and DOCX fixtures through the full pipeline) — 12 tests. **Suite total: 41 passed, 1 deselected (live).**
 
 ---
 
+## Phase 4 — Cache ✅
+
+**Built:**
+- `app/cache/store.py` — `CacheStore`, SQLite-backed (`data/cache.sqlite3`, gitignored). `clause_hash(text, prompt_version)` normalizes whitespace (`re.sub(r"\s+", " ", text).strip()`) before hashing, so reflowed/re-wrapped clause text with identical words still hits. Keyed on `(clause_hash, prompt_version)` — `CACHE_PROMPT_VERSION` in `constants.py` is the manual invalidation lever if the prompt or model changes.
+- `simplify_clauses()` (Phase 2) grew an optional `cache: ClauseCache | None = None` parameter — fully backward compatible, default `None` preserves every existing Phase 2/3 test unchanged. When given: every clause is checked against the cache *before* batching; hits are turned directly into `SimplifiedClause`s (never touch `client`); misses are batched and sent to the LLM as before, then **write-through** to the cache per-clause as each batch's results parse successfully.
+- `app/jobs/pipeline.py` — same `get_cache_store()`/`set_cache_store()` DI pattern as the LLM client, wired into `process_document`.
+
+**Decisions:**
+- SQLite over a JSON dict (both were roadmap-acceptable) — chosen to avoid concurrent-write corruption risk from multiple async batch tasks writing the same file, since batches run concurrently under the semaphore.
+- Cache reads/writes are synchronous `sqlite3` calls made directly inside async functions (not wrapped in `asyncio.to_thread`) — accepted as a minor, deliberate event-loop-blocking tradeoff since local SQLite I/O is sub-millisecond and this is a portfolio MVP, not a high-throughput service. Worth revisiting only if profiling ever shows it matters.
+- The `with_fake_groq` test fixture now also installs a fresh per-test `CacheStore` under pytest's `tmp_path` (and resets to `None` after) — without this, integration tests would either write to the real repo `data/` directory or silently leak cached responses between unrelated tests (both `job_manager` and the pipeline's client/cache are module-level singletons).
+
+**Verified live (not just mocked):** uploaded the same pasted text twice through the running server with a real Groq key. Second run returned **byte-identical** simplified text — meaningful because a real LLM call is not perfectly deterministic, so identical output across two runs is strong evidence the second run hit cache and skipped Groq entirely rather than just coincidentally matching.
+
+**Tests:** `test_cache_store.py` (hit/miss, whitespace-stable hashing, prompt-version invalidation, overwrite-on-put, cross-instance persistence — 9 tests), plus 3 new cache-integration tests added to `test_simplify_parsing.py` (cache hit skips the client entirely, cache miss writes through, a second identical run makes zero additional LLM calls). **Suite total: 53 passed, 1 deselected (live).**
+
+---
+
 ## Known gaps carried forward (not bugs, just not-yet-built)
 
-- No cache (Phase 4) — every clause hits the LLM every run, even on identical re-uploads.
 - No retry-then-badge verification UX (Phase 5) — badge shows immediately on `self_check=true`, no single retry first.
 - No readability scoring (Phase 5).
 - In-memory job store — restarting the server loses all job history (documented MVP tradeoff, SQLite is the noted upgrade path).
-- No real live Groq call has been verified yet — pending API key.
+- Occasional heading renumbering by the model (see Phase 3 quality note) — a candidate for the Phase 5 eval harness to track systematically.

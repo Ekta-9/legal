@@ -1,10 +1,12 @@
+from app.cache.store import CacheStore
 from app.jobs.manager import job_manager
 from app.llm.groq_client import GroqClient
-from app.llm.simplify import CompletesPrompts, simplify_clauses
+from app.llm.simplify import ClauseCache, CompletesPrompts, simplify_clauses
 from app.models.schemas import JobStatus, SimplifiedClause
 from app.parsing.extract import ExtractionError, parse_document
 
 _client: CompletesPrompts | None = None
+_cache_store: ClauseCache | None = None
 
 
 def get_client() -> CompletesPrompts:
@@ -20,6 +22,21 @@ def set_client(client: CompletesPrompts | None) -> None:
     """
     global _client
     _client = client
+
+
+def get_cache_store() -> ClauseCache:
+    global _cache_store
+    if _cache_store is None:
+        _cache_store = CacheStore()
+    return _cache_store
+
+
+def set_cache_store(store: ClauseCache | None) -> None:
+    """Test/DI hook — swap in an isolated cache store, or pass None to reset
+    to the lazily-constructed default (data/cache.sqlite3) on next use.
+    """
+    global _cache_store
+    _cache_store = store
 
 
 async def process_document(job_id: str, filename: str, content: bytes) -> None:
@@ -41,7 +58,12 @@ async def process_document(job_id: str, filename: str, content: bytes) -> None:
             job_manager.add_completed(job_id, simplified)
 
     try:
-        await simplify_clauses(clauses, get_client(), on_batch_complete=on_batch_complete)
+        await simplify_clauses(
+            clauses,
+            get_client(),
+            on_batch_complete=on_batch_complete,
+            cache=get_cache_store(),
+        )
     except Exception as e:
         job_manager.fail(job_id, f"simplification failed: {e}")
         return
