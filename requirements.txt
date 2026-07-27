@@ -24,6 +24,6 @@ sentence-transformers==3.3.1
 numpy==2.2.1
 
 # Phase 7 — translation (optional satellite)
-# transformers==4.47.1
-# sentencepiece==0.2.0
-# torch  # install per your CUDA/CPU setup — see PyTorch install selector
+transformers==4.47.1
+sentencepiece==0.2.0
+torch==2.13.0  # already pulled in by Phase 6's sentence-transformers; pinned here since Phase 7 depends on it directly too

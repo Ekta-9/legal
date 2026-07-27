@@ -48,3 +48,12 @@ class JobResultResponse(BaseModel):
     total_clauses: int
     completed: list[SimplifiedClause]
     error: str | None = None
+
+
+class TranslateRequest(BaseModel):
+    text: str
+    target_lang: str  # short code, e.g. "hi" or "mr" — see translation.nllb.SUPPORTED_LANGUAGES
+
+
+class TranslateResponse(BaseModel):
+    translated_text: str

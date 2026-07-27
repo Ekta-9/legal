@@ -106,7 +106,67 @@ function renderClause(clause) {
     card.appendChild(buildGlossaryTerms(clause.glossary_matches));
   }
 
+  card.appendChild(buildTranslateControl(clause));
+
   resultsEl.appendChild(card);
+}
+
+const TRANSLATE_LANGUAGES = [
+  { code: "hi", label: "Hindi" },
+  { code: "mr", label: "Marathi" },
+];
+
+function buildTranslateControl(clause) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "translate-control";
+
+  const select = document.createElement("select");
+  for (const lang of TRANSLATE_LANGUAGES) {
+    const option = document.createElement("option");
+    option.value = lang.code;
+    option.textContent = lang.label;
+    select.appendChild(option);
+  }
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "translate-button";
+  button.textContent = "Translate (experimental)";
+
+  const output = document.createElement("div");
+  output.className = "translate-output";
+  output.hidden = true;
+
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    button.textContent = "Translating...";
+    output.hidden = false;
+    output.textContent = "";
+
+    try {
+      const response = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: clause.simplified, target_lang: select.value }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        output.textContent = `Error: ${data.detail || response.statusText}`;
+      } else {
+        output.textContent = data.translated_text;
+      }
+    } catch (err) {
+      output.textContent = `Error: ${err.message}`;
+    } finally {
+      button.disabled = false;
+      button.textContent = "Translate (experimental)";
+    }
+  });
+
+  wrapper.appendChild(select);
+  wrapper.appendChild(button);
+  wrapper.appendChild(output);
+  return wrapper;
 }
 
 function buildGlossaryTerms(matches) {

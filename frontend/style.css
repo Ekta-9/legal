@@ -201,3 +201,55 @@ button:hover {
   padding: 0.15rem 0.6rem;
   cursor: help;
 }
+
+.translate-control {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.translate-control select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.85rem;
+}
+
+.translate-button {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.translate-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.translate-output {
+  flex-basis: 100%;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  padding: 0.5rem;
+  background: var(--card-bg);
+  border: 1px dashed var(--accent);
+  border-radius: 4px;
+}
+
+.translate-output::before {
+  content: "Experimental machine translation — not reviewed for accuracy:";
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}

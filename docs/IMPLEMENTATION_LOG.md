@@ -127,10 +127,36 @@ Running record of what was actually built per phase, decisions/deviations from `
 
 ---
 
+## Phase 7 — Translation (optional satellite) ✅
+
+**Built:**
+- `app/translation/nllb.py` — thin wrapper around `facebook/nllb-200-distilled-600M` via `transformers`. `SUPPORTED_LANGUAGES` maps short codes (`hi`, `mr`) to FLORES-200 codes (`hin_Deva`, `mar_Deva`). `translate(text, target_lang, source_lang="eng_Latn")` validates `target_lang` and handles empty text **before** touching the tokenizer/model — both checks are pure and instant, so they're safe to unit-test in the default suite without loading anything heavy. The actual `transformers` import happens *inside* the `lru_cache`d `_get_tokenizer()`/`_get_model()` functions, not at module top-level, so merely importing `nllb.py` (e.g. to reference `SUPPORTED_LANGUAGES` or catch `UnsupportedLanguageError`) never pulls in the 2.4GB model.
+- `app/routers/translate.py` — `POST /api/translate` ({`text`, `target_lang`} → {`translated_text`}), same lazy-singleton DI pattern as the client/cache/glossary store (`get_translate_fn()`/`set_translate_fn()`). Generation is CPU-bound and synchronous, so the handler runs it via `asyncio.to_thread` to avoid blocking the event loop for the seconds a translation takes.
+- `app/models/schemas.py` — `TranslateRequest`/`TranslateResponse`.
+- Deliberately **not** wired into the main job pipeline — translation happens strictly on-demand per the frontend's per-clause "Translate" button, exactly matching `PLANNING.md`'s "simplified clauses translated on demand" and "keep off the critical path." The main upload→simplify flow is completely unaffected; nothing about it got slower or more failure-prone.
+- `frontend/`: each clause card gets a language `<select>` (Hindi/Marathi) + "Translate (experimental)" button. Output renders below the card with a persistent "Experimental machine translation — not reviewed for accuracy" label baked into the CSS (`::before` on `.translate-output`), so the caveat can't be forgotten or removed by accident when editing the JS.
+- `pytest.ini` — added a new `slow` marker (distinct from `live`) for tests that load a heavy local model rather than make a network call; default `addopts` now excludes both. This class of test didn't exist before Phase 6/7 (the glossary embedding model was small enough to just eat the cost by default; NLLB-600M is not).
+
+**Decisions:**
+- No automated translation-quality gate — `PLANNING.md` explicitly says MT quality "is hard to QA" and calls for manual spot-check by a fluent reader only. The `slow`-marked opt-in test (`tests/live/test_translate_smoke.py`) only asserts non-empty, distinct-per-language output — a wiring check, not a quality check.
+- Chose to expose translation as a **separate on-demand endpoint** rather than an extra field computed during the main job, unlike readability/glossary (which are cheap/local and always computed). Translation is neither cheap (multi-second CPU inference per call) nor something every user wants for every clause — forcing it into the critical path would violate the phase's own stated constraint.
+
+**Verified live (not just mocked), in stages:**
+1. Confirmed the NLLB tokenizer's FLORES-200 code API (`convert_tokens_to_ids("hin_Deva")` → a real, distinct token id, not the unknown-token id) before writing any code against it — same "probe the real API before locking in tests" discipline used for the Groq SDK's `RateLimitError` shape in Phase 2 and the glossary retrieval scores in Phase 6.
+2. Called `translate()` directly (bypassing the API) for both Hindi and Marathi on a real clause: both came back fluent, non-empty, and different from each other. Hindi back-reads as accurate; the Marathi result used a slightly different verb ("reach a settlement" rather than literally "terminate") — flagged here as exactly the kind of quality nuance the spec anticipated and explicitly chose not to auto-gate.
+3. Hit the real running server's `POST /api/translate` end-to-end over HTTP (not just the Python function) — 200 status, correct fluent Hindi translation of a full clause, and confirmed the 400 path for an unsupported language code (`fr`) returns the expected error detail.
+4. **Encoding note:** an ad-hoc `print()` of Hindi/Marathi text crashed with `UnicodeEncodeError` against this Windows terminal's `cp1252` console — the translation itself had already succeeded; only the console print failed. Same root cause class as the Phase 6 em-dash mojibake (Windows console encoding, not a data/logic bug) — worked around by writing output to a UTF-8 file instead of printing directly. No code change needed; noted here so the same false alarm isn't re-investigated as a bug later.
+
+**Tests:** `test_translate_nllb.py` (language-code validation and empty-text short-circuit, both proven not to touch the model — 3 tests), `test_translate_flow.py` (injected-fake-function router tests: success, unsupported-language 400, empty-text 400 without invoking the translator, missing-field 422 — 4 tests), `test_translate_smoke.py` (`@pytest.mark.slow`, opt-in, loads the real model). **Suite total: 83 passed, 2 deselected (1 live, 1 slow).**
+
+---
+
 ## Known gaps carried forward (not bugs, just not-yet-built)
 
 - In-memory job store — restarting the server loses all job history (documented MVP tradeoff, SQLite is the noted upgrade path).
 - No eval harness (`eval/golden_set.json` + `run_eval.py`) — quality is being spot-checked manually, not tracked systematically yet.
 - Occasional heading renumbering by the model (see Phase 3 quality note) — a candidate for the eval harness above, once built.
 - The independent-judge upgrade to `verify.py` remains un-built by design — only build it if the (not-yet-built) eval harness actually shows hallucination.
-- Glossary retrieval threshold (0.35) is empirically chosen, not formally tuned — occasional near-miss top-1 ranking observed (see Phase 6 decisions). Phases 7 (translation) and 8 (LoRA) remain un-built — 7 is optional/experimental per spec, 8 explicitly requires external Colab/Kaggle infrastructure not available in this environment.
+- Glossary retrieval threshold (0.35) is empirically chosen, not formally tuned — occasional near-miss top-1 ranking observed (see Phase 6 decisions).
+- Translation quality is unaudited by a fluent reader beyond the author's own spot-check (see Phase 7 verification note on the Marathi nuance) — by design, per spec, not a gap to close casually.
+- Phase 8 (LoRA fine-tune) remains un-built — explicitly requires external Colab/Kaggle infrastructure not available in this environment; it's a resume-line stretch goal, not a product requirement.
