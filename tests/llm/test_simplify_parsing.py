@@ -152,3 +152,33 @@ async def test_second_run_with_full_cache_makes_zero_llm_calls(fake_groq, tmp_pa
     assert dropped == []
     assert len(simplified) == 2
     assert len(fake_groq.prompts) == 1  # unchanged — second run made no new calls
+
+
+@pytest.mark.asyncio
+async def test_verify_fn_runs_per_batch_and_result_reflects_its_output(fake_groq):
+    calls = []
+
+    async def verify_fn(simplified, batch):
+        calls.append((simplified, batch))
+        return [s.model_copy(update={"simplified": "VERIFIED", "self_check": False}) for s in simplified]
+
+    simplified, dropped = await simplify_clauses(CLAUSES, fake_groq, verify_fn=verify_fn)
+
+    assert dropped == []
+    assert len(calls) == 1  # one call per batch (single batch here)
+    assert all(s.simplified == "VERIFIED" for s in simplified)
+
+
+@pytest.mark.asyncio
+async def test_verify_fn_output_is_what_gets_cached(fake_groq, tmp_path):
+    from app.cache.store import CacheStore
+
+    cache = CacheStore(tmp_path / "cache.sqlite3")
+
+    async def verify_fn(simplified, batch):
+        return [s.model_copy(update={"simplified": "VERIFIED", "self_check": False}) for s in simplified]
+
+    await simplify_clauses(CLAUSES, fake_groq, cache=cache, verify_fn=verify_fn)
+
+    hit = cache.get(CLAUSES[0].text)
+    assert hit["simplified"] == "VERIFIED"  # post-verify text, not the raw LLM output

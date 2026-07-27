@@ -1,13 +1,15 @@
 import asyncio
 import json
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Protocol
 
 from app.constants import GROQ_BATCH_SIZE
 from app.llm.groq_client import batch_items
-from app.models.schemas import Clause, SimplifiedClause
+from app.models.schemas import Clause, ReadabilityScore, SimplifiedClause
+from app.scoring.readability import readability_delta
 
 BatchCallback = Callable[[list[SimplifiedClause], list[str]], None]
+VerifyFn = Callable[[list[SimplifiedClause], list[Clause]], Awaitable[list[SimplifiedClause]]]
 
 
 class CompletesPrompts(Protocol):
@@ -64,13 +66,15 @@ def parse_batch_response(
             continue
         seen_ids.add(clause_id)
         clause = by_id[clause_id]
+        stripped_simplified = simplified_text.strip()
         simplified.append(
             SimplifiedClause(
                 id=clause_id,
                 heading=clause.heading,
                 original=clause.text,
-                simplified=simplified_text.strip(),
+                simplified=stripped_simplified,
                 self_check=bool(item.get("self_check", False)),
+                readability=ReadabilityScore(**readability_delta(clause.text, stripped_simplified)),
             )
         )
 
@@ -84,6 +88,7 @@ async def simplify_clauses(
     batch_size: int = GROQ_BATCH_SIZE,
     on_batch_complete: BatchCallback | None = None,
     cache: ClauseCache | None = None,
+    verify_fn: VerifyFn | None = None,
 ) -> tuple[list[SimplifiedClause], list[str]]:
     """Batches clauses, sends each batch to `client`, and merges results.
     Concurrency across batches is bounded by the client's own semaphore.
@@ -94,6 +99,11 @@ async def simplify_clauses(
 
     `cache`, if given, is checked before every clause is sent to the LLM and
     written through after each batch — cache hits never touch `client` at all.
+
+    `verify_fn`, if given, runs after each batch's initial results and before
+    caching/callback — e.g. `app.llm.verify`'s flag-then-retry-once rule. It
+    is decoupled here via injection (rather than an import) so this module
+    has no dependency on the verification policy.
     """
     to_process: list[Clause] = []
     cached_simplified: list[SimplifiedClause] = []
@@ -107,6 +117,9 @@ async def simplify_clauses(
                     original=clause.text,
                     simplified=hit["simplified"],
                     self_check=hit["self_check"],
+                    readability=ReadabilityScore(
+                        **readability_delta(clause.text, hit["simplified"])
+                    ),
                 )
             )
         else:
@@ -120,6 +133,8 @@ async def simplify_clauses(
     async def process(batch: list[Clause]) -> tuple[list[SimplifiedClause], list[str]]:
         raw = await client.complete(build_prompt(batch))
         simplified, dropped = parse_batch_response(raw, batch)
+        if verify_fn is not None:
+            simplified = await verify_fn(simplified, batch)
         if cache is not None:
             for s in simplified:
                 cache.put(s.original, s.simplified, s.self_check, s.heading)

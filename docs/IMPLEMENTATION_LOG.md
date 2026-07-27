@@ -84,9 +84,29 @@ Running record of what was actually built per phase, decisions/deviations from `
 
 ---
 
+## Phase 5 — Readability + Verification-failure UX ✅
+
+**Built:**
+- `app/scoring/readability.py` — `flesch_kincaid_grade()` wraps `textstat`, special-casing empty/whitespace text to `0.0` (the raw library returns nonsense large-negative numbers on empty input instead of raising — discovered by direct probing, not documented). `readability_delta(original, simplified)` returns `{original_grade, simplified_grade, delta}`; positive `delta` means the simplification reads at an *easier* (lower) grade level.
+- `app/models/schemas.py` — new `ReadabilityScore` model; `SimplifiedClause` grew an optional `readability` field, computed once wherever a `SimplifiedClause` is actually constructed (both in `parse_batch_response` and in `simplify_clauses`'s cache-hit branch) — every clause the API returns carries a score, including ones served entirely from cache.
+- `app/llm/verify.py` (new) — implements `PLANNING.md` §3's verification-failure rule exactly: `retry_flagged_clauses()` takes only the `self_check=True` subset of a batch, sends **one** retry call for just those clause ids, and replaces each with its retry result — including a retry that comes back still flagged (badge stays). If the retry response itself is malformed and drops a clause, the original flagged result is kept rather than lost — "never suppress" holds even when the retry call itself fails to parse.
+- `app/llm/simplify.py` — `simplify_clauses()` grew an optional `verify_fn` hook (`Callable[[list[SimplifiedClause], list[Clause]], Awaitable[list[SimplifiedClause]]]`), invoked per-batch after parsing and before cache write-through/callback. `verify.py` is *not* imported by `simplify.py` — `pipeline.py` composes them via `verify.make_verifier(client)`, keeping the same one-directional DI pattern already used for `client` and `cache`. This means a flagged-then-retried-and-cleared clause gets cached in its final, corrected state, not its initial flagged one.
+- `frontend/`: clause cards now show a readability pill (`Grade 8.6 ↓ 6.0`, green when improved / red when worsened) next to the existing ⚠ badge.
+
+**Decisions:**
+- Deliberately did **not** promote to an independent-judge `verify.py` (a second LLM call purely to check the first) — `PLANNING.md` explicitly gates that behind eval evidence of hallucination, and no eval harness (Phase 5's own optional deliverable) has been built or run yet to produce that evidence. What's built is exactly the documented default: self-check flag in the same call, one retry on failure, badge if still flagged.
+- Readability computation was wired directly into `simplify.py` (importing `scoring/readability.py`) rather than kept fully decoupled via DI like `cache`/`verify` — justified because it's a pure function of two strings with zero external dependencies (no client, no I/O), unlike verify (needs an LLM call) or cache (needs a store). Coupling a zero-dependency utility costs nothing; DI is reserved for things that actually need swapping out in tests.
+- The eval harness (`eval/golden_set.json` + `run_eval.py`, roadmap's non-pytest quality dashboard) was **not** built — it's an explicit "run occasionally" tool, not a spine requirement, and there's no hallucination signal yet to calibrate a rubric against. Flagged as a candidate for later if quality regressions need systematic tracking (see the Phase 3 heading-renumbering note below).
+
+**Verified live (not just mocked):** re-uploaded `sample_clean.pdf` with the real Groq key. All 3 clauses came back `self_check: false` with real, positive readability deltas (2.4–3.6 grade levels easier) — confirms the full construction path (including the new `readability` field) works against real model output, not just the fake client's canned responses. The retry-on-flag path itself was *not* forced live (would require deliberately engineering a low-confidence clause and burning quota on a flaky, hard-to-reproduce case) — it's covered instead by 6 dedicated unit tests in `test_verify_logic.py` against a scripted fake client, which is the more reliable way to pin down exact-once-retry behavior anyway.
+
+**Tests:** `test_readability.py` (empty input, comparative grade direction, delta sign, identical-text zero-delta — 6 tests), `test_verify_logic.py` (no-flag passthrough, flag→retry→cleared, flag→retry→still-flagged-never-suppressed, exactly-one-retry-call, malformed-retry-response keeps original, `make_verifier` binding — 6 tests), plus 2 new `simplify_clauses`-level tests confirming `verify_fn` actually runs per-batch and that its *output* (not the pre-verify text) is what gets cached. **Suite total: 67 passed, 1 deselected (live).**
+
+---
+
 ## Known gaps carried forward (not bugs, just not-yet-built)
 
-- No retry-then-badge verification UX (Phase 5) — badge shows immediately on `self_check=true`, no single retry first.
-- No readability scoring (Phase 5).
 - In-memory job store — restarting the server loses all job history (documented MVP tradeoff, SQLite is the noted upgrade path).
-- Occasional heading renumbering by the model (see Phase 3 quality note) — a candidate for the Phase 5 eval harness to track systematically.
+- No eval harness (`eval/golden_set.json` + `run_eval.py`) — quality is being spot-checked manually, not tracked systematically yet.
+- Occasional heading renumbering by the model (see Phase 3 quality note) — a candidate for the eval harness above, once built.
+- The independent-judge upgrade to `verify.py` remains un-built by design — only build it if the (not-yet-built) eval harness actually shows hallucination.

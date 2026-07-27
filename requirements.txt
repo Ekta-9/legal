@@ -17,6 +17,7 @@ groq==0.15.0
 
 # Phase 5 — readability
 textstat==0.7.4
+setuptools<81  # textstat 0.7.4 needs pkg_resources, which newer setuptools dropped
 
 # Phase 6 — glossary RAG (satellite)
 sentence-transformers==3.3.1

@@ -9,12 +9,19 @@ class Clause(BaseModel):
     text: str
 
 
+class ReadabilityScore(BaseModel):
+    original_grade: float
+    simplified_grade: float
+    delta: float  # positive = simplification reads at an easier grade level
+
+
 class SimplifiedClause(BaseModel):
     id: str
     heading: str | None = None
     original: str
     simplified: str
     self_check: bool  # True => model flagged this simplification as low-confidence/risky
+    readability: ReadabilityScore | None = None
 
 
 class JobStatus(str, enum.Enum):

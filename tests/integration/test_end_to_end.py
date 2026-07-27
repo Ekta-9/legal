@@ -42,6 +42,10 @@ async def test_pdf_fixture_flows_through_full_pipeline(async_client, with_fake_g
     # original clause text is preserved verbatim alongside the simplification
     assert "signatory" in completed["clause_1"]["original"]
     assert completed["clause_1"]["simplified"].startswith("SIMPLIFIED:")
+    # readability score rides along in the API response
+    readability = completed["clause_1"]["readability"]
+    assert readability is not None
+    assert set(readability) == {"original_grade", "simplified_grade", "delta"}
 
 
 @pytest.mark.asyncio

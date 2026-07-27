@@ -120,6 +120,37 @@ button:hover {
   padding: 0.15rem 0.6rem;
 }
 
+.readability-pill {
+  font-weight: 500;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+.readability-pill.improved {
+  color: #1a7f37;
+  border-color: #1a7f37;
+}
+
+.readability-pill.worsened {
+  color: #b91c1c;
+  border-color: #b91c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+  .readability-pill.improved {
+    color: #4ade80;
+    border-color: #4ade80;
+  }
+
+  .readability-pill.worsened {
+    color: #f87171;
+    border-color: #f87171;
+  }
+}
+
 .clause-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;

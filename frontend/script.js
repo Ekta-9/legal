@@ -91,6 +91,9 @@ function renderClause(clause) {
     badge.textContent = "⚠ machine-check flagged this — read the original carefully";
     heading.appendChild(badge);
   }
+  if (clause.readability) {
+    heading.appendChild(buildReadabilityPill(clause.readability));
+  }
   card.appendChild(heading);
 
   const columns = document.createElement("div");
@@ -100,6 +103,16 @@ function renderClause(clause) {
   card.appendChild(columns);
 
   resultsEl.appendChild(card);
+}
+
+function buildReadabilityPill(readability) {
+  const pill = document.createElement("span");
+  const delta = readability.delta;
+  pill.className = "readability-pill" + (delta > 0 ? " improved" : delta < 0 ? " worsened" : "");
+  const arrow = delta > 0 ? "↓" : delta < 0 ? "↑" : "=";
+  pill.textContent = `Grade ${readability.original_grade} ${arrow} ${readability.simplified_grade}`;
+  pill.title = `Flesch-Kincaid grade level: ${readability.original_grade} (original) -> ${readability.simplified_grade} (simplified)`;
+  return pill;
 }
 
 function buildColumn(label, text) {

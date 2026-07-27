@@ -2,6 +2,7 @@ from app.cache.store import CacheStore
 from app.jobs.manager import job_manager
 from app.llm.groq_client import GroqClient
 from app.llm.simplify import ClauseCache, CompletesPrompts, simplify_clauses
+from app.llm.verify import make_verifier
 from app.models.schemas import JobStatus, SimplifiedClause
 from app.parsing.extract import ExtractionError, parse_document
 
@@ -57,12 +58,14 @@ async def process_document(job_id: str, filename: str, content: bytes) -> None:
         if simplified:
             job_manager.add_completed(job_id, simplified)
 
+    client = get_client()
     try:
         await simplify_clauses(
             clauses,
-            get_client(),
+            client,
             on_batch_complete=on_batch_complete,
             cache=get_cache_store(),
+            verify_fn=make_verifier(client),
         )
     except Exception as e:
         job_manager.fail(job_id, f"simplification failed: {e}")
