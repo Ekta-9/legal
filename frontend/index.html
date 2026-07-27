@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legal Document Simplifier</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Legal Document Simplifier</h1>
+    <p class="disclaimer">This is an automated summary, not legal advice. Always verify against the original text before relying on it.</p>
+  </header>
+
+  <main>
+    <form id="upload-form">
+      <div class="field">
+        <label for="file-input">Upload a PDF, DOCX, or .txt file</label>
+        <input type="file" id="file-input" accept=".pdf,.docx,.txt" />
+      </div>
+      <div class="field">
+        <label for="text-input">...or paste text</label>
+        <textarea id="text-input" rows="6" placeholder="Paste a contract or clause text here"></textarea>
+      </div>
+      <button type="submit">Simplify</button>
+      <span id="status"></span>
+    </form>
+
+    <section id="results"></section>
+  </main>
+
+  <script src="/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "sample_clean.pdf": {
+    "clause_count": 3,
+    "ids": ["clause_1", "clause_2", "clause_3"],
+    "headings": ["1. Definitions", "2. Term", "3. Termination"]
+  },
+  "sample_multicolumn.pdf": {
+    "clause_count": 2,
+    "ids": ["clause_1", "clause_2"],
+    "headings": ["1. Confidentiality", "2. Governing Law"]
+  },
+  "sample.docx": {
+    "clause_count": 3,
+    "ids": ["clause_1", "clause_2", "clause_3"],
+    "headings": ["1. Definitions", "2. Term", "3. Termination"]
+  }
+}

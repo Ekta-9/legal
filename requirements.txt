@@ -1,0 +1,28 @@
+# Phase 0 — core app + testing
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-multipart==0.0.20
+pytest==8.3.4
+pytest-asyncio==0.25.2
+httpx==0.28.1
+
+# Phase 1 — parsing
+pymupdf==1.25.2
+python-docx==1.1.2
+
+# Phase 2 — LLM
+groq==0.15.0
+
+# Phase 5 — readability
+textstat==0.7.4
+
+# Phase 6 — glossary RAG (satellite)
+sentence-transformers==3.3.1
+numpy==2.2.1
+
+# Phase 7 — translation (optional satellite)
+# transformers==4.47.1
+# sentencepiece==0.2.0
+# torch  # install per your CUDA/CPU setup — see PyTorch install selector
