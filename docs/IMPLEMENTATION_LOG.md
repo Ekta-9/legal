@@ -104,9 +104,33 @@ Running record of what was actually built per phase, decisions/deviations from `
 
 ---
 
+## Phase 6 — Glossary RAG (satellite) ✅
+
+**Built:**
+- `app/rag/glossary_data/glossary.json` — 60 curated legal term/plain-definition pairs (indemnification, force majeure, arbitration, termination for cause vs. convenience, liquidated damages, etc.) — a deliberately hand-picked set rather than the roadmap's aspirational "few hundred," matching the project's own "don't gold-plate" principle. Easy to extend later; nothing in the code assumes a fixed count.
+- `app/rag/embeddings.py` — thin wrapper around `sentence-transformers` (`all-MiniLM-L6-v2`, ~90MB, CPU). `get_model()` is `lru_cache`d so the model loads once per process. `embed_texts()` returns unit-normalized vectors so cosine similarity reduces to a plain dot product.
+- `app/rag/glossary_store.py` — `GlossaryStore`: embeds the full glossary once at construction (`"{term}: {definition}"` per entry, so both signal sources contribute), then `search(text, top_k=3, threshold=0.35)` embeds the query and does `numpy` matrix-vector dot product against all entries — no Chroma/FAISS, exactly as specified.
+- `app/models/schemas.py` — new `GlossaryMatch` model; `SimplifiedClause` grew a `glossary_matches: list[GlossaryMatch] = []` field.
+- `app/jobs/pipeline.py` — `get_glossary_store()`/`set_glossary_store()` follow the same lazy-singleton DI pattern as the client/cache, **except the import of `GlossaryStore` itself is deferred inside the getter function** (not a top-level import) — this was a deliberate call to stop every test that merely imports `pipeline.py` from paying `torch`'s import cost, even when that test has nothing to do with glossary matching. `on_batch_complete` now enriches every completed clause with `glossary_store.search(clause.original)` before storing it on the job — matching against the *original* legal text, not the simplified one, since that's where the jargon actually lives.
+- `frontend/`: each clause card gets a "Related terms:" row of pill-shaped tags (only rendered when matches exist) with the definition as a native `title` tooltip on hover — no JS tooltip library needed.
+
+**Decisions:**
+- Retrieval is over the **original** clause text, not the simplified text — the whole point is explaining jargon that the simplification already stripped out; searching the simplified text would often find nothing.
+- `threshold=0.35` was picked empirically by probing real queries against the real glossary (see verification below) — high enough to filter out an unrelated sentence ("The cat sat on the mat...") entirely, low enough that genuinely relevant matches (0.4–0.65 range observed) survive. Not tuned against a formal eval set; a candidate for the (still-unbuilt) eval harness if false positives/negatives become a visible problem.
+- Semantic search is not perfect: probing showed a force-majeure clause's top match was "Limitation of Liability" (0.423) narrowly ahead of "Force Majeure" itself (0.408) — both plausible, but not the ideal #1. Accepted as an inherent property of embedding-based fuzzy retrieval rather than something to special-case; noted here instead of silently ignored.
+- The `with_fake_groq` test fixture was **not** extended to isolate the glossary store, unlike the cache — the glossary store is read-only over a static file with no per-run mutation, so sharing the real (or a test-supplied fake) instance across tests carries no cross-test pollution risk.
+
+**Verified live (not just mocked):** re-uploaded `sample_clean.pdf` with the real Groq key and the real glossary/embedding model together. Results were qualitatively strong: the "Definitions" clause matched "Effective Date" (0.782) and "Consideration" (0.353); the "Term" clause matched "Effective Date" (0.63) and both "Termination for Cause"/"Termination for Convenience" (~0.47); the "Termination" clause matched "Termination for Cause" (0.552), "Termination for Convenience" (0.542), and "Breach of Contract" (0.452) — all semantically on-target. Also confirmed the model download (first run: ~74s) is cached afterward (subsequent load: ~4s), and that the `pkg_resources` UserWarning is not from this module (it's `textstat`, pre-existing from Phase 5) and is otherwise harmless.
+- **Encoding false alarm, logged for the record:** a `curl | python -m json.tool` smoke test displayed the "Consideration" definition's em dash as mojibake (`â€”`-style garbage). Verified directly against the raw file bytes and the decoded Python string's codepoint (`0x2014`, the correct em dash) — the JSON data itself is correct UTF-8; the corruption was purely a Git Bash console-encoding rendering artifact in that one manual smoke test, not a real bug. No code change was needed.
+
+**Tests:** `test_glossary_search.py` — top-1 correctness against a small controlled 5-term glossary for two distinct clear queries, `top_k` limiting, threshold filtering (both an impossibly-high threshold and a genuinely unrelated sentence), empty-query handling, empty-glossary-file handling, and score-descending ordering (8 tests, run against the real embedding model since it's deterministic — no LLM nondeterminism here, so no mocking needed per the roadmap's own test-bucket philosophy). Plus one new integration test asserting `glossary_matches` rides through the full API response end-to-end (using an injected fake glossary store for a deterministic assertion) and an added assertion in the existing PDF end-to-end test that the field is always present (possibly empty) on every clause. **Suite total: 76 passed, 1 deselected (live).** Full suite runtime rose from ~0.5s to ~10s — entirely the one-time embedding-model load, paid once per test process via the `lru_cache`d singleton, not per test.
+
+---
+
 ## Known gaps carried forward (not bugs, just not-yet-built)
 
 - In-memory job store — restarting the server loses all job history (documented MVP tradeoff, SQLite is the noted upgrade path).
 - No eval harness (`eval/golden_set.json` + `run_eval.py`) — quality is being spot-checked manually, not tracked systematically yet.
 - Occasional heading renumbering by the model (see Phase 3 quality note) — a candidate for the eval harness above, once built.
 - The independent-judge upgrade to `verify.py` remains un-built by design — only build it if the (not-yet-built) eval harness actually shows hallucination.
+- Glossary retrieval threshold (0.35) is empirically chosen, not formally tuned — occasional near-miss top-1 ranking observed (see Phase 6 decisions). Phases 7 (translation) and 8 (LoRA) remain un-built — 7 is optional/experimental per spec, 8 explicitly requires external Colab/Kaggle infrastructure not available in this environment.

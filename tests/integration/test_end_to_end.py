@@ -46,6 +46,36 @@ async def test_pdf_fixture_flows_through_full_pipeline(async_client, with_fake_g
     readability = completed["clause_1"]["readability"]
     assert readability is not None
     assert set(readability) == {"original_grade", "simplified_grade", "delta"}
+    # glossary_matches is always present (possibly empty), never missing from the response
+    assert isinstance(completed["clause_1"]["glossary_matches"], list)
+
+
+@pytest.mark.asyncio
+async def test_glossary_matches_ride_through_the_api_response(async_client, with_fake_groq):
+    from app.jobs import pipeline as pipeline_module
+
+    class FakeGlossaryStore:
+        def search(self, text: str) -> list[dict]:
+            return [{"term": "Definitions", "definition": "Terms defined for use in this contract.", "score": 0.9}]
+
+    pipeline_module.set_glossary_store(FakeGlossaryStore())
+    try:
+        content = (FIXTURES_DIR / "sample_clean.pdf").read_bytes()
+        upload = await async_client.post(
+            "/api/documents",
+            files={"file": ("sample_clean.pdf", content, "application/pdf")},
+        )
+        job_id = upload.json()["job_id"]
+
+        result = await _poll_until_done(async_client, job_id)
+
+        completed = {c["id"]: c for c in result["completed"]}
+        matches = completed["clause_1"]["glossary_matches"]
+        assert matches == [
+            {"term": "Definitions", "definition": "Terms defined for use in this contract.", "score": 0.9}
+        ]
+    finally:
+        pipeline_module.set_glossary_store(None)
 
 
 @pytest.mark.asyncio

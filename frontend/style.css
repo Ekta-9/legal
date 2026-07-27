@@ -176,3 +176,28 @@ button:hover {
   white-space: pre-wrap;
   line-height: 1.5;
 }
+
+.glossary-terms {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.glossary-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-right: 0.15rem;
+}
+
+.glossary-term {
+  font-size: 0.8rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  cursor: help;
+}

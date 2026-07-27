@@ -102,7 +102,31 @@ function renderClause(clause) {
   columns.appendChild(buildColumn("Simplified", clause.simplified));
   card.appendChild(columns);
 
+  if (clause.glossary_matches && clause.glossary_matches.length > 0) {
+    card.appendChild(buildGlossaryTerms(clause.glossary_matches));
+  }
+
   resultsEl.appendChild(card);
+}
+
+function buildGlossaryTerms(matches) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "glossary-terms";
+
+  const label = document.createElement("span");
+  label.className = "glossary-label";
+  label.textContent = "Related terms:";
+  wrapper.appendChild(label);
+
+  for (const match of matches) {
+    const term = document.createElement("span");
+    term.className = "glossary-term";
+    term.textContent = match.term;
+    term.title = match.definition; // native tooltip on hover
+    wrapper.appendChild(term);
+  }
+
+  return wrapper;
 }
 
 function buildReadabilityPill(readability) {

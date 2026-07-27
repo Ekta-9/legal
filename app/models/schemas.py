@@ -15,6 +15,12 @@ class ReadabilityScore(BaseModel):
     delta: float  # positive = simplification reads at an easier grade level
 
 
+class GlossaryMatch(BaseModel):
+    term: str
+    definition: str
+    score: float
+
+
 class SimplifiedClause(BaseModel):
     id: str
     heading: str | None = None
@@ -22,6 +28,7 @@ class SimplifiedClause(BaseModel):
     simplified: str
     self_check: bool  # True => model flagged this simplification as low-confidence/risky
     readability: ReadabilityScore | None = None
+    glossary_matches: list[GlossaryMatch] = []
 
 
 class JobStatus(str, enum.Enum):
