@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legal Document Simplifier — Result</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Legal Document Simplifier</h1>
+    <p class="disclaimer">This is an automated summary, not legal advice. Always verify against the original text before relying on it.</p>
+  </header>
+
+  <main>
+    <p class="back-link"><a href="/">&larr; Simplify another document</a></p>
+    <p id="status">Loading...</p>
+
+    <div class="doc-columns">
+      <div class="doc-pane doc-pane--original">
+        <h3>Original</h3>
+        <div id="original-doc"></div>
+      </div>
+      <div class="doc-pane doc-pane--simplified">
+        <h3 id="simplified-heading">Simplified</h3>
+        <p class="print-only" id="print-disclaimer">This is an automated, simplified rendering of the uploaded document — not legal advice. Always verify against the original text before relying on it.</p>
+        <div id="simplified-doc"></div>
+        <button type="button" id="download-btn" disabled>Download simplified (PDF)</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="/result.js"></script>
+</body>
+</html>

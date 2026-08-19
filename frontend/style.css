@@ -1,20 +1,31 @@
 :root {
   color-scheme: light dark;
-  --fg: #1a1a1a;
+  /* Harbor haze palette */
+  --harbor-slate: #909eae;
+  --harbor-blue: #5c8dc5;
+  --harbor-taupe: #ad9e90;
+  --harbor-olive: #736f60;
+
+  --fg: #2c2b28;
   --bg: #ffffff;
-  --muted: #6b6b6b;
-  --accent: #b45309;
-  --border: #dddddd;
-  --card-bg: #f8f8f8;
+  --muted: var(--harbor-olive);
+  --accent: #3f6ea0; /* darkened harbor-blue, kept accessible on white */
+  --accent-light: var(--harbor-blue);
+  --button-bg: #3f6ea0; /* stays solid enough for white text in both themes */
+  --border: #d9d3ca;
+  --card-bg: #f6f3ef;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --fg: #e8e8e8;
-    --bg: #121212;
-    --muted: #9a9a9a;
-    --border: #333333;
-    --card-bg: #1c1c1c;
+    --fg: #ece8e2;
+    --bg: #1b1d21;
+    --muted: #b7ac9d;
+    --accent: #7fa8d9; /* lightened harbor-blue for contrast on dark bg */
+    --accent-light: var(--harbor-blue);
+    --button-bg: #4a7ab0;
+    --border: #3d4046;
+    --card-bg: #232529;
   }
 }
 
@@ -28,7 +39,7 @@ body {
   background: var(--bg);
   margin: 0;
   padding: 2rem;
-  max-width: 960px;
+  max-width: 1180px;
   margin-inline: auto;
 }
 
@@ -65,7 +76,8 @@ header h1 {
 }
 
 textarea,
-input[type="file"] {
+input[type="file"],
+select {
   font-family: inherit;
   padding: 0.5rem;
   border: 1px solid var(--border);
@@ -74,12 +86,16 @@ input[type="file"] {
   color: var(--fg);
 }
 
+#lang-select {
+  align-self: flex-start;
+}
+
 button {
   align-self: flex-start;
   padding: 0.5rem 1.25rem;
   border: none;
   border-radius: 4px;
-  background: var(--accent);
+  background: var(--button-bg);
   color: white;
   font-size: 1rem;
   cursor: pointer;
@@ -94,21 +110,108 @@ button:hover {
   font-size: 0.9rem;
 }
 
-.clause-card {
+.back-link {
+  margin-bottom: 0.5rem;
+}
+
+.back-link a {
+  color: var(--accent);
+}
+
+#download-btn {
+  display: block;
+  width: 100%;
+  margin-top: 1rem;
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+#download-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.doc-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 720px) {
+  .doc-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.doc-pane {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 1rem;
-  margin-bottom: 1rem;
   background: var(--card-bg);
+  max-height: 75vh;
+  overflow-y: auto;
 }
 
-.clause-heading {
+.doc-pane h3 {
+  position: sticky;
+  top: 0;
+  margin: -1rem -1rem 0.75rem;
+  padding: 0.6rem 1rem;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.doc-empty {
+  color: var(--muted);
+}
+
+.doc-clause {
+  padding-bottom: 0.85rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 1px dashed var(--border);
+}
+
+.doc-clause:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.doc-clause-head {
   font-weight: 600;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.4rem;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+.doc-clause-number {
+  color: var(--accent);
+}
+
+.doc-clause-heading {
+  font-weight: 600;
+}
+
+.doc-clause-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.doc-clause-pending-text {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.doc-clause--pending .doc-clause-number {
+  color: var(--muted);
 }
 
 .badge {
@@ -123,8 +226,8 @@ button:hover {
 .readability-pill {
   font-weight: 500;
   font-size: 0.8rem;
-  color: var(--muted);
-  border: 1px solid var(--border);
+  color: var(--harbor-slate);
+  border: 1px solid var(--harbor-slate);
   border-radius: 999px;
   padding: 0.15rem 0.6rem;
 }
@@ -149,32 +252,6 @@ button:hover {
     color: #f87171;
     border-color: #f87171;
   }
-}
-
-.clause-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-@media (max-width: 640px) {
-  .clause-columns {
-    grid-template-columns: 1fr;
-  }
-}
-
-.clause-column h4 {
-  margin: 0 0 0.35rem;
-  color: var(--muted);
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.clause-column p {
-  margin: 0;
-  white-space: pre-wrap;
-  line-height: 1.5;
 }
 
 .glossary-terms {
@@ -202,46 +279,11 @@ button:hover {
   cursor: help;
 }
 
-.translate-control {
-  margin-top: 0.85rem;
-  padding-top: 0.75rem;
-  border-top: 1px dashed var(--border);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.translate-control select {
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg);
-  color: var(--fg);
-  font-size: 0.85rem;
-}
-
-.translate-button {
-  padding: 0.3rem 0.75rem;
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--accent);
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.translate-button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
 .translate-output {
-  flex-basis: 100%;
   font-size: 0.9rem;
   line-height: 1.5;
   padding: 0.5rem;
-  background: var(--card-bg);
+  background: var(--bg);
   border: 1px dashed var(--accent);
   border-radius: 4px;
 }
@@ -252,4 +294,66 @@ button:hover {
   font-size: 0.75rem;
   color: var(--muted);
   margin-bottom: 0.25rem;
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .doc-pane--simplified,
+  .doc-pane--simplified * {
+    visibility: visible;
+  }
+
+  .doc-pane--simplified {
+    position: absolute;
+    inset: 0;
+    max-height: none;
+    overflow: visible;
+    border: none;
+    background: white;
+    color: black;
+    padding: 0;
+  }
+
+  .doc-pane--simplified h3 {
+    position: static;
+    background: white;
+    color: black;
+    border-bottom: 1px solid #999;
+    margin: 0 0 0.75rem;
+  }
+
+  .print-only {
+    display: block;
+  }
+
+  #print-disclaimer {
+    font-size: 0.8rem;
+    color: #444;
+    border-left: 3px solid #999;
+    padding-left: 0.5rem;
+    margin: 0 0 1rem;
+  }
+
+  .doc-clause-number,
+  .badge,
+  .readability-pill {
+    color: black !important;
+    border-color: #999 !important;
+  }
+
+  #download-btn {
+    display: none;
+  }
+
+  .translate-output {
+    border-color: #999;
+    background: white;
+  }
 }

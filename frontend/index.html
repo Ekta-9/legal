@@ -22,11 +22,17 @@
         <label for="text-input">...or paste text</label>
         <textarea id="text-input" rows="6" placeholder="Paste a contract or clause text here"></textarea>
       </div>
+      <div class="field">
+        <label for="lang-select">Simplify into</label>
+        <select id="lang-select">
+          <option value="en">English (no translation)</option>
+          <option value="hi">Hindi</option>
+          <option value="mr">Marathi</option>
+        </select>
+      </div>
       <button type="submit">Simplify</button>
       <span id="status"></span>
     </form>
-
-    <section id="results"></section>
   </main>
 
   <script src="/script.js"></script>
