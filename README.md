@@ -30,20 +30,6 @@ cd legal-simplifier
 pip install -r requirements.txt
 ```
 
-### Running the App
-
-```bash
-# from the project root
-python -m app
-```
-
-Then open the `frontend/` app in your browser (see `frontend/README` or `docs/` for exact instructions, if provided).
-
-### Running Tests
-
-```bash
-pytest
-```
 
 ## How It Works
 
