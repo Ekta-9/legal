@@ -6,7 +6,9 @@ from app.llm.groq_client import GroqClient
 from app.llm.simplify import ClauseCache, CompletesPrompts, simplify_clauses
 from app.llm.verify import make_verifier
 from app.models.schemas import GlossaryMatch, JobStatus, SimplifiedClause
-from app.parsing.extract import ExtractionError, parse_document
+from app.parsing.clause_splitter import split_clauses
+from app.parsing.extract import ExtractionError, extract
+from app.rag.document_context import attach_context
 
 
 class GlossarySearch(Protocol):
@@ -69,10 +71,17 @@ async def process_document(job_id: str, filename: str, content: bytes) -> None:
     job_manager.set_status(job_id, JobStatus.PROCESSING)
 
     try:
-        clauses = parse_document(filename, content)
+        text = extract(filename, content)
     except ExtractionError as e:
         job_manager.fail(job_id, str(e))
         return
+    clauses = split_clauses(text)
+
+    try:
+        # built from the full text, not the clauses, so a preamble the splitter skips still yields parties
+        clauses = attach_context(text, clauses)
+    except Exception:
+        pass  # retrieval only improves the prompt; simplify without it rather than fail the job
 
     job_manager.set_total(job_id, len(clauses))
     if not clauses:

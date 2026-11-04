@@ -182,3 +182,36 @@ async def test_verify_fn_output_is_what_gets_cached(fake_groq, tmp_path):
 
     hit = cache.get(CLAUSES[0].text)
     assert hit["simplified"] == "VERIFIED"  # post-verify text, not the raw LLM output
+
+
+def test_build_prompt_includes_retrieved_context_only_for_clauses_that_have_it():
+    from app.models.schemas import ClauseContext
+
+    with_context = Clause(
+        id="clause_1",
+        text="The Client shall pay the Fee.",
+        context=ClauseContext(parties=["Client: John Doe"], definitions={"Fee": '"Fee" means INR 50,000'}),
+    )
+    prompt = build_prompt([with_context, CLAUSES[1]])
+    items = json.loads(prompt.split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+
+    assert items[0]["context"] == {"parties": ["Client: John Doe"], "definitions": {"Fee": '"Fee" means INR 50,000'}}
+    assert "context" not in items[1]
+
+
+@pytest.mark.asyncio
+async def test_same_clause_text_with_different_context_is_not_served_from_cache(fake_groq, tmp_path):
+    from app.cache.store import CacheStore
+    from app.models.schemas import ClauseContext
+
+    cache = CacheStore(tmp_path / "cache.sqlite3")
+    text = "The Client shall pay the Fee."
+    contract_a = Clause(id="clause_1", text=text, context=ClauseContext(definitions={"Fee": '"Fee" means INR 50,000'}))
+    contract_b = Clause(id="clause_1", text=text, context=ClauseContext(definitions={"Fee": '"Fee" means USD 10'}))
+
+    await simplify_clauses([contract_a], fake_groq, cache=cache)
+    await simplify_clauses([contract_b], fake_groq, cache=cache)
+    assert len(fake_groq.prompts) == 2  # different definitions -> separate LLM calls
+
+    await simplify_clauses([contract_a], fake_groq, cache=cache)
+    assert len(fake_groq.prompts) == 2  # identical context -> cache hit

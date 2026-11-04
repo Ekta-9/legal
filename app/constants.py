@@ -13,7 +13,7 @@ GROQ_BACKOFF_BASE_SECONDS = 1.0
 VERIFY_MAX_RETRIES = 1  # exactly one retry before showing the warning badge
 
 # Cache
-CACHE_PROMPT_VERSION = "v1"  # bump to invalidate all cached results
+CACHE_PROMPT_VERSION = "v2"  # bump to invalidate all cached results (v2: prompt carries retrieved document context)
 
 # Job store
 JOB_POLL_INTERVAL_HINT_SECONDS = 1.5  # suggested frontend polling interval

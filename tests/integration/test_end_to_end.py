@@ -98,3 +98,24 @@ async def test_docx_fixture_flows_through_full_pipeline(async_client, with_fake_
 
     assert result["status"] == JobStatus.DONE.value
     assert result["total_clauses"] == 3
+
+
+@pytest.mark.asyncio
+async def test_retrieved_document_context_reaches_the_llm_prompt(async_client, with_fake_groq):
+    import json
+
+    text = (
+        'This Agreement is between Acme Ltd (the "Provider") and John Doe (the "Client").\n\n'
+        '1. Definitions\n"Fee" means INR 50,000 per month.\n\n'
+        "2. Payment\nThe Client shall pay the Fee, subject to Section 3.\n\n"
+        "3. Disputes\nDisputed invoices are not payable until resolved."
+    )
+    upload = await async_client.post("/api/documents", data={"text": text})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.DONE.value
+    items = json.loads(with_fake_groq.prompts[0].split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+    payment = next(i for i in items if i["clause_id"] == "clause_2")
+    assert payment["context"]["parties"] == ["Provider: Acme Ltd", "Client: John Doe"]
+    assert payment["context"]["definitions"] == {"Fee": '"Fee" means INR 50,000 per month'}
+    assert "Disputed invoices" in payment["context"]["referenced_sections"]["3"]

@@ -3,10 +3,21 @@ import enum
 from pydantic import BaseModel
 
 
+class ClauseContext(BaseModel):
+    """Material retrieved from elsewhere in the same document that the model
+    needs to interpret a clause correctly — see app/rag/document_context.py.
+    """
+
+    parties: list[str] = []
+    definitions: dict[str, str] = {}  # defined term -> the sentence that defines it
+    referenced_sections: dict[str, str] = {}  # section number -> that section's text
+
+
 class Clause(BaseModel):
     id: str
     heading: str | None = None
     text: str
+    context: ClauseContext | None = None
 
 
 class ReadabilityScore(BaseModel):

@@ -21,13 +21,35 @@ class ClauseCache(Protocol):
     def put(self, text: str, simplified: str, self_check: bool, heading: str | None = None) -> None: ...
 
 
+def cache_key(clause: Clause) -> str:
+    """The same clause text can simplify differently depending on what its
+    defined terms and parties mean in a given contract, so retrieved context
+    is part of the cache identity. Context-free clauses keep the plain text key.
+    """
+    if clause.context is None:
+        return clause.text
+    return f"{clause.text}\n[context]{json.dumps(clause.context.model_dump(), sort_keys=True)}"
+
+
+def _prompt_item(clause: Clause) -> dict:
+    item = {"clause_id": clause.id, "text": clause.text}
+    if clause.context is not None:
+        item["context"] = clause.context.model_dump(exclude_defaults=True)
+    return item
+
+
 def build_prompt(batch: list[Clause]) -> str:
-    items = [{"clause_id": c.id, "text": c.text} for c in batch]
+    items = [_prompt_item(c) for c in batch]
     return (
         "You are simplifying legal contract clauses into plain English for a non-lawyer.\n"
         "For each clause below, produce a simplified version that preserves the original "
         "meaning exactly — do not add, remove, or infer obligations not present in the "
         "source text.\n"
+        "Some clauses include a \"context\" object retrieved from elsewhere in the same "
+        "contract: the parties, definitions of terms the clause uses, and sections it refers "
+        "to. Use it only to interpret the clause correctly (e.g. say who a party is, or what "
+        "a defined term means). Do not simplify or restate the context itself, and do not "
+        "add obligations that appear only in the context.\n"
         "Set self_check to true if you are not fully confident the simplification is "
         "faithful to the original, or if the clause is ambiguous or risky to simplify.\n\n"
         f"Clauses:\n{json.dumps(items, indent=2)}\n\n"
@@ -108,7 +130,7 @@ async def simplify_clauses(
     to_process: list[Clause] = []
     cached_simplified: list[SimplifiedClause] = []
     for clause in clauses:
-        hit = cache.get(clause.text) if cache is not None else None
+        hit = cache.get(cache_key(clause)) if cache is not None else None
         if hit is not None:
             cached_simplified.append(
                 SimplifiedClause(
@@ -136,8 +158,9 @@ async def simplify_clauses(
         if verify_fn is not None:
             simplified = await verify_fn(simplified, batch)
         if cache is not None:
+            by_id = {c.id: c for c in batch}
             for s in simplified:
-                cache.put(s.original, s.simplified, s.self_check, s.heading)
+                cache.put(cache_key(by_id[s.id]), s.simplified, s.self_check, s.heading)
         if on_batch_complete is not None:
             on_batch_complete(simplified, dropped)
         return simplified, dropped
