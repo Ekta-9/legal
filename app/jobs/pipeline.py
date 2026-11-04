@@ -5,7 +5,7 @@ from app.jobs.manager import job_manager
 from app.llm.groq_client import GroqClient
 from app.llm.simplify import ClauseCache, CompletesPrompts, simplify_clauses
 from app.llm.verify import make_verifier
-from app.models.schemas import GlossaryMatch, JobStatus, SimplifiedClause
+from app.models.schemas import ClauseOutline, GlossaryMatch, JobStatus, SimplifiedClause
 from app.parsing.clause_splitter import split_clauses
 from app.parsing.extract import ExtractionError, extract
 from app.rag.document_context import attach_context
@@ -68,6 +68,14 @@ def set_glossary_store(store: GlossarySearch | None) -> None:
 
 
 async def process_document(job_id: str, filename: str, content: bytes) -> None:
+    try:
+        await _process_document(job_id, filename, content)
+    except Exception:
+        # last line of defence: an unexpected error must end the job, never leave it "processing" forever
+        job_manager.fail(job_id, "Something went wrong while processing the document. Please try again.")
+
+
+async def _process_document(job_id: str, filename: str, content: bytes) -> None:
     job_manager.set_status(job_id, JobStatus.PROCESSING)
 
     try:
@@ -78,20 +86,19 @@ async def process_document(job_id: str, filename: str, content: bytes) -> None:
     clauses = split_clauses(text)
 
     try:
-        # built from the full text, not the clauses, so a preamble the splitter skips still yields parties
+        # built from the full text, not the clauses, so parties and definitions anywhere in the document are found
         clauses = attach_context(text, clauses)
     except Exception:
         pass  # retrieval only improves the prompt; simplify without it rather than fail the job
 
-    job_manager.set_total(job_id, len(clauses))
+    job_manager.set_clauses(job_id, [ClauseOutline(id=c.id, heading=c.heading, text=c.text) for c in clauses])
     if not clauses:
         job_manager.set_status(job_id, JobStatus.DONE)
         return
+    clauses_by_id = {c.id: c for c in clauses}
 
     def on_batch_complete(simplified: list[SimplifiedClause], dropped: list[str]) -> None:
-        if not simplified:
-            return
-        glossary_store = get_glossary_store()
+        glossary_store = get_glossary_store() if simplified else None
         enriched = [
             s.model_copy(
                 update={
@@ -102,7 +109,19 @@ async def process_document(job_id: str, filename: str, content: bytes) -> None:
             )
             for s in simplified
         ]
-        job_manager.add_completed(job_id, enriched)
+        # still missing after the retry: report them instead of letting them silently vanish
+        failed = [
+            SimplifiedClause(
+                id=clause_id,
+                heading=clauses_by_id[clause_id].heading,
+                original=clauses_by_id[clause_id].text,
+                simplified="",
+                self_check=True,
+                failed=True,
+            )
+            for clause_id in dropped
+        ]
+        job_manager.add_completed(job_id, enriched + failed)
 
     client = get_client()
     try:

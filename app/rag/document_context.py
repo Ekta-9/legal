@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass, field
 
 from app.models.schemas import Clause, ClauseContext
+from app.parsing.clause_splitter import PREAMBLE_HEADING
 
 MAX_CONTEXT_CHARS = 1500  # per clause, across parties + definitions + referenced sections
 MAX_DEFINITION_CHARS = 300
@@ -54,7 +55,7 @@ class DocumentContext:
 
 
 def _preamble_end(text: str, clauses: list[Clause]) -> int:
-    first_heading = next((c.heading for c in clauses if c.heading), None)
+    first_heading = next((c.heading for c in clauses if c.heading and c.heading != PREAMBLE_HEADING), None)
     if first_heading:
         position = text.find(first_heading)
         if position >= 0:
@@ -115,7 +116,7 @@ def retrieve_clause_context(clause: Clause, context: DocumentContext) -> ClauseC
     budget = MAX_CONTEXT_CHARS
     clause_text = _collapse(clause.text)
 
-    for party in context.parties:
+    for party in context.parties if clause.heading != PREAMBLE_HEADING else []:  # the preamble names them itself
         if len(party) > budget:
             break
         result.parties.append(party)

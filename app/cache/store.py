@@ -4,6 +4,7 @@ import sqlite3
 import threading
 from pathlib import Path
 
+from app.config import settings
 from app.constants import CACHE_PROMPT_VERSION
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "cache.sqlite3"
@@ -14,7 +15,13 @@ def normalize_clause_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def clause_hash(text: str, prompt_version: str = CACHE_PROMPT_VERSION) -> str:
+def default_cache_version() -> str:
+    """Prompt version + model, so switching GROQ_MODEL never serves another model's results."""
+    return f"{CACHE_PROMPT_VERSION}:{settings.groq_model}"
+
+
+def clause_hash(text: str, prompt_version: str | None = None) -> str:
+    prompt_version = prompt_version or default_cache_version()
     normalized = normalize_clause_text(text)
     digest_input = f"{prompt_version}:{normalized}".encode("utf-8")
     return hashlib.sha256(digest_input).hexdigest()
@@ -48,7 +55,7 @@ class CacheStore:
                 """
             )
 
-    def get(self, text: str, prompt_version: str = CACHE_PROMPT_VERSION) -> dict | None:
+    def get(self, text: str, prompt_version: str | None = None) -> dict | None:
         key = clause_hash(text, prompt_version)
         with self._lock, self._connect() as conn:
             row = conn.execute(
@@ -65,7 +72,7 @@ class CacheStore:
         simplified: str,
         self_check: bool,
         heading: str | None = None,
-        prompt_version: str = CACHE_PROMPT_VERSION,
+        prompt_version: str | None = None,
     ) -> None:
         key = clause_hash(text, prompt_version)
         with self._lock, self._connect() as conn:

@@ -1,3 +1,5 @@
+import pytest
+
 from app.parsing.clause_splitter import split_clauses
 
 NUMBERED_TEXT = """1. Definitions
@@ -57,3 +59,77 @@ def test_clause_ids_are_sequential_and_stable():
     clauses = split_clauses(NUMBERED_TEXT)
     ids = [c.id for c in clauses]
     assert ids == sorted(ids, key=lambda i: int(i.split("_")[1]))
+
+
+def _lines(text):
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+COVERAGE_CASES = {
+    "numbered": NUMBERED_TEXT,
+    "sections": SECTION_TEXT,
+    "unnumbered": UNNUMBERED_TEXT,
+    "preamble": 'RENT AGREEMENT\nThis is between A (the "Owner") and B (the "Tenant").\n\n1. Rent\nPay monthly.\n2. Term\nOne year.',
+    "wrapped": "1. Term\nThis starts on 1 January\n2025. It lasts one year.\n2. Liability\nAs set out in\nSection 7 of the Schedule, except for fraud.",
+    "nested list": "1. Duties\nThe Tenant shall:\n1. pay rent;\n2. keep the flat clean.\n2. Term\nOne year.",
+    "sub-clauses": "1. Definitions\n1.1 Agreement means this document.\n1.2 Services means the work.\n2. Payment\nPay on time.",
+    "caps headings": "CONFIDENTIALITY\nKeep it secret.\nTERMINATION\nEither party may end this.",
+    "one per line": "The Tenant pays rent.\nThe Owner fixes the roof.\nEither party may end this.",
+}
+
+
+@pytest.mark.parametrize("name", COVERAGE_CASES)
+def test_every_line_lands_in_exactly_one_clause_in_order(name):
+    """Coverage invariant: splitting never drops, duplicates or reorders text."""
+    text = COVERAGE_CASES[name]
+    clauses = split_clauses(text)
+    assert [line for c in clauses for line in _lines(c.text)] == _lines(text)
+    assert [c.id for c in clauses] == [f"clause_{i}" for i in range(1, len(clauses) + 1)]
+
+
+def test_text_before_the_first_clause_is_kept_as_a_preamble():
+    clauses = split_clauses(COVERAGE_CASES["preamble"])
+    assert clauses[0].heading == "Preamble"
+    assert '(the "Owner")' in clauses[0].text
+    assert [c.heading for c in clauses[1:]] == ["1. Rent", "2. Term"]
+
+
+def test_wrapped_year_and_schedule_reference_do_not_start_clauses():
+    clauses = split_clauses(COVERAGE_CASES["wrapped"])
+    assert [c.heading for c in clauses] == ["1. Term", "2. Liability"]
+    assert "except for fraud" in clauses[1].text
+
+
+def test_list_nested_inside_a_clause_does_not_restart_numbering():
+    clauses = split_clauses(COVERAGE_CASES["nested list"])
+    assert [c.heading for c in clauses] == ["1. Duties", "2. Term"]
+    assert "2. keep the flat clean." in clauses[0].text
+
+
+def test_sub_clauses_without_trailing_dot_are_boundaries():
+    clauses = split_clauses(COVERAGE_CASES["sub-clauses"])
+    assert [c.heading for c in clauses] == [
+        "1. Definitions",
+        "1.1 Agreement means this document.",
+        "1.2 Services means the work.",
+        "2. Payment",
+    ]
+
+
+def test_sub_number_followed_by_lowercase_is_a_wrapped_line_not_a_boundary():
+    clauses = split_clauses("1. Fees\nLate fees apply as per clause\n1.2 hereof and are payable.\n2. Term\nOne year.")
+    assert [c.heading for c in clauses] == ["1. Fees", "2. Term"]
+
+
+def test_unnumbered_caps_headings_are_boundaries():
+    clauses = split_clauses(COVERAGE_CASES["caps headings"])
+    assert [c.heading for c in clauses] == ["CONFIDENTIALITY", "TERMINATION"]
+
+
+def test_one_paragraph_per_line_text_splits_per_line():
+    assert len(split_clauses(COVERAGE_CASES["one per line"])) == 3
+
+
+def test_hard_wrapped_prose_is_not_split_per_line():
+    text = "The Tenant shall pay the rent on or before the seventh day of\neach calendar month by bank transfer to the account notified\nby the Owner in writing."
+    assert len(split_clauses(text)) == 1

@@ -1,5 +1,5 @@
 from app.jobs.manager import JobManager
-from app.models.schemas import JobStatus, SimplifiedClause
+from app.models.schemas import ClauseOutline, JobStatus, SimplifiedClause
 
 
 def test_create_job_starts_pending():
@@ -16,7 +16,7 @@ def test_job_lifecycle_pending_to_processing_to_done():
     job = manager.create()
 
     manager.set_status(job.id, JobStatus.PROCESSING)
-    manager.set_total(job.id, 2)
+    manager.set_clauses(job.id, [ClauseOutline(id="clause_1", text="a"), ClauseOutline(id="clause_2", text="b")])
     assert manager.get(job.id).status == JobStatus.PROCESSING
     assert manager.get(job.id).total_clauses == 2
 

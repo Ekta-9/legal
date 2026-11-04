@@ -115,7 +115,52 @@ async def test_retrieved_document_context_reaches_the_llm_prompt(async_client, w
 
     assert result["status"] == JobStatus.DONE.value
     items = json.loads(with_fake_groq.prompts[0].split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
-    payment = next(i for i in items if i["clause_id"] == "clause_2")
+    payment = next(i for i in items if i["clause_id"] == "clause_3")
     assert payment["context"]["parties"] == ["Provider: Acme Ltd", "Client: John Doe"]
     assert payment["context"]["definitions"] == {"Fee": '"Fee" means INR 50,000 per month'}
     assert "Disputed invoices" in payment["context"]["referenced_sections"]["3"]
+
+
+@pytest.mark.asyncio
+async def test_clause_the_model_never_returns_is_reported_as_failed_with_its_original(async_client, with_fake_groq):
+    import json
+
+    from app.jobs import pipeline as pipeline_module
+
+    class NeverReturnsClauseTwo:
+        def __init__(self):
+            self.prompts = []
+
+        async def complete(self, prompt):
+            self.prompts.append(prompt)
+            items = json.loads(prompt.split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+            return json.dumps(
+                {"results": [{"clause_id": c["clause_id"], "simplified": "ok", "self_check": False} for c in items if c["clause_id"] != "clause_2"]}
+            )
+
+    pipeline_module.set_client(NeverReturnsClauseTwo())
+    upload = await async_client.post("/api/documents", data={"text": "1. Rent\nPay monthly.\n\n2. Term\nOne year.\n\n3. Notice\nIn writing."})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.DONE.value
+    assert [c["id"] for c in result["clauses"]] == ["clause_1", "clause_2", "clause_3"]
+    completed = {c["id"]: c for c in result["completed"]}
+    assert set(completed) == {"clause_1", "clause_2", "clause_3"}  # nothing silently vanishes
+    assert completed["clause_2"]["failed"] is True
+    assert completed["clause_2"]["original"] == "2. Term\nOne year."
+    assert completed["clause_1"]["failed"] is False
+
+
+@pytest.mark.asyncio
+async def test_unexpected_error_fails_the_job_instead_of_leaving_it_processing(async_client, with_fake_groq, monkeypatch):
+    from app.jobs import pipeline as pipeline_module
+
+    def boom(text):
+        raise RuntimeError("splitter bug")
+
+    monkeypatch.setattr(pipeline_module, "split_clauses", boom)
+    upload = await async_client.post("/api/documents", data={"text": "1. Rent\nPay monthly."})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.FAILED.value
+    assert "splitter bug" not in result["error"]  # internals aren't shown to the user

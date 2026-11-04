@@ -3,7 +3,7 @@ import json
 from collections.abc import Awaitable, Callable
 from typing import Protocol
 
-from app.constants import GROQ_BATCH_SIZE
+from app.constants import DROPPED_MAX_RETRIES, GROQ_BATCH_SIZE
 from app.llm.groq_client import batch_items
 from app.models.schemas import Clause, ReadabilityScore, SimplifiedClause
 from app.scoring.readability import readability_delta
@@ -50,6 +50,8 @@ def build_prompt(batch: list[Clause]) -> str:
         "to. Use it only to interpret the clause correctly (e.g. say who a party is, or what "
         "a defined term means). Do not simplify or restate the context itself, and do not "
         "add obligations that appear only in the context.\n"
+        "Refer to parties by their name or role. Do not add details the original does not "
+        "state, such as a person's gender or pronouns.\n"
         "Set self_check to true if you are not fully confident the simplification is "
         "faithful to the original, or if the clause is ambiguous or risky to simplify.\n\n"
         f"Clauses:\n{json.dumps(items, indent=2)}\n\n"
@@ -57,6 +59,20 @@ def build_prompt(batch: list[Clause]) -> str:
         '{"results": [{"clause_id": "...", "simplified": "...", "self_check": true|false}]}\n'
         "Include exactly one result per input clause_id, in any order."
     )
+
+
+def _parse_self_check(value: object) -> bool:
+    """A missing or unreadable flag counts as flagged: the badge is the safe
+    default when we can't tell. (`bool("false")` would be True, so strings
+    are read explicitly.)
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str) and value.strip().lower() in ("false", "no", "0"):
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return bool(value)
+    return True
 
 
 def parse_batch_response(
@@ -95,7 +111,7 @@ def parse_batch_response(
                 heading=clause.heading,
                 original=clause.text,
                 simplified=stripped_simplified,
-                self_check=bool(item.get("self_check", False)),
+                self_check=_parse_self_check(item.get("self_check")),
                 readability=ReadabilityScore(**readability_delta(clause.text, stripped_simplified)),
             )
         )
@@ -155,6 +171,12 @@ async def simplify_clauses(
     async def process(batch: list[Clause]) -> tuple[list[SimplifiedClause], list[str]]:
         raw = await client.complete(build_prompt(batch))
         simplified, dropped = parse_batch_response(raw, batch)
+        for _ in range(DROPPED_MAX_RETRIES):
+            if not dropped:
+                break
+            missing = [c for c in batch if c.id in set(dropped)]
+            recovered, dropped = parse_batch_response(await client.complete(build_prompt(missing)), missing)
+            simplified.extend(recovered)
         if verify_fn is not None:
             simplified = await verify_fn(simplified, batch)
         if cache is not None:

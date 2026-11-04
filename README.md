@@ -1,55 +1,85 @@
 # Legal Document Simplifier
 
-Upload a legal contract and get it broken down into individual clauses, simplified in plain English by an LLM, and displayed side-by-side with the original — so you can actually understand what you're signing.
+Upload a legal contract and get each clause rewritten in plain English, shown beside the original so you can check every line against the source.
+
+> **Not legal advice.** The plain-English versions are written by an AI model. They can be wrong or leave things out. Always read the original of any clause that matters to you.
 
 ## Features
 
-- **Document upload** — drop in a contract (PDF/DOCX/TXT)
-- **Automatic clause extraction** — the document is parsed and split into individual clauses
-- **LLM-powered simplification** — each clause is rewritten in plain, easy-to-understand language
-- **Side-by-side view** — compare the original legal text against the simplified version clause by clause
+- **Upload or paste** a contract: PDF (with a text layer), DOCX or TXT.
+- **Clause splitting** that follows the document's own numbering (`1.`, `1.1`, `SECTION 2`, `ARTICLE IV`), keeps the preamble that names the parties, and falls back to ALL-CAPS headings or paragraphs for unnumbered documents. In DOCX files it reads Word's automatic numbering and tables.
+- **Document context (RAG)**: each clause is sent to the model with the parties, the definitions of terms it uses, and the sections it refers to, all retrieved from the same contract.
+- **Plain-English rewrite** of every clause via Groq (`openai/gpt-oss-120b` by default). The model also reports when it is unsure, and those clauses are marked "model unsure" (the model's own judgement, not an independent check).
+- **Nothing silently disappears**: a clause the model fails to return is retried once, then shown as "not simplified" with its original text.
+- **Readability score** (Flesch-Kincaid grade, before → after) and glossary terms per clause.
+- **Hindi / Marathi translation (experimental)** of the plain-English text with a local NLLB model. It is slow on CPU and has not been reviewed for legal accuracy.
 
-## Project Structure
+**Not supported:** scanned PDFs (no OCR), and headers, footers and footnotes in DOCX files. PDF page headers and footers can end up inside clauses. Very long documents have not been tested.
 
-```
-legal-simplifier/
-├── app/            # Backend application (document processing + LLM simplification pipeline)
-├── frontend/        # Client-side UI for uploading documents and viewing results
-├── docs/            # Project documentation
-├── tests/           # Test suite
-├── pytest.ini        # Pytest configuration
-└── requirements.txt  # Python dependencies
-```
+## Your data
 
+The document's text is sent to [Groq's API](https://groq.com/privacy-policy/) for simplification. Simplified clauses are cached on disk in `data/cache.sqlite3`. Job results are kept in memory until the server restarts.
 
-### Installation
+## Setup
+
+Developed and tested with Python 3.11.
 
 ```bash
-git clone https://github.com/Ekta-9/legal-simplifier.git
-cd legal-simplifier
+git clone https://github.com/Ekta-9/legal.git
+cd legal
+python -m venv .venv
+.venv\Scripts\activate          # Windows; on macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Running the App
+Get a free API key at <https://console.groq.com/keys>, then:
 
 ```bash
-# from the project root
-python -m app
+cp .env.example .env            # Windows: copy .env.example .env
+# edit .env and set GROQ_API_KEY=...
 ```
 
-Then open the `frontend/` app in your browser (see `frontend/README` or `docs/` for exact instructions, if provided).
+To use a different Groq model, set `GROQ_MODEL` in `.env`. Cached results are keyed by model, so switching models never serves another model's output.
 
-### Running Tests
+## Running
 
 ```bash
-pytest
+uvicorn app.main:app --reload
 ```
 
-## How It Works
+Open <http://127.0.0.1:8000>. The API and the frontend are served from the same address.
 
-1. **Upload** — a contract is submitted through the frontend.
-2. **Extract** — text is pulled from the uploaded document.
-3. **Split** — the document is segmented into individual clauses.
-4. **Simplify** — each clause is passed to an LLM, which returns a plain-language rewrite.
-5. **Compare** — the original and simplified clauses are rendered side by side in the UI.
+On first use, the glossary embedding model (~90 MB) and, if you choose a translation, the NLLB model (~2.4 GB) are downloaded from Hugging Face.
 
+## Tests
+
+```bash
+pytest                 # offline: no API key or network needed
+pytest -m live         # real Groq call (uses your quota)
+pytest -m slow         # loads the real NLLB translation model
+```
+
+## How it works
+
+1. **Extract**: text is read from the file (PyMuPDF for PDF, python-docx for DOCX).
+2. **Split**: the text is cut into clauses (`app/parsing/clause_splitter.py`).
+3. **Context**: parties, definitions and cross-referenced sections are retrieved for each clause (`app/rag/document_context.py`).
+4. **Simplify**: clauses go to the model in batches of 6. Cached clauses are skipped, flagged clauses are retried once, and missing clauses are re-requested once (`app/llm/`).
+5. **Show**: the page polls for results and fills in each clause as its batch finishes (`frontend/`).
+
+## Project structure
+
+```
+app/
+├── main.py            FastAPI app; serves the API and frontend/
+├── routers/           /api/documents (upload, results), /api/translate
+├── jobs/              background pipeline and in-memory job store
+├── parsing/           text extraction and clause splitting
+├── rag/               document context retrieval, glossary search
+├── llm/               Groq client, prompt, response parsing, retry logic
+├── cache/             SQLite clause cache
+├── scoring/           readability
+└── translation/       NLLB translation
+frontend/              plain HTML/CSS/JS
+tests/                 unit, llm, integration, live (opt-in)
+```

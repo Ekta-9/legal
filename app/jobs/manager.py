@@ -1,7 +1,7 @@
 import uuid
 from dataclasses import dataclass, field
 
-from app.models.schemas import JobStatus, SimplifiedClause
+from app.models.schemas import ClauseOutline, JobStatus, SimplifiedClause
 
 
 @dataclass
@@ -9,6 +9,7 @@ class Job:
     id: str
     status: JobStatus = JobStatus.PENDING
     total_clauses: int = 0
+    clauses: list[ClauseOutline] = field(default_factory=list)
     completed: list[SimplifiedClause] = field(default_factory=list)
     error: str | None = None
 
@@ -32,8 +33,10 @@ class JobManager:
     def set_status(self, job_id: str, status: JobStatus) -> None:
         self._jobs[job_id].status = status
 
-    def set_total(self, job_id: str, total: int) -> None:
-        self._jobs[job_id].total_clauses = total
+    def set_clauses(self, job_id: str, clauses: list[ClauseOutline]) -> None:
+        job = self._jobs[job_id]
+        job.clauses = clauses
+        job.total_clauses = len(clauses)
 
     def add_completed(self, job_id: str, clauses: list[SimplifiedClause]) -> None:
         self._jobs[job_id].completed.extend(clauses)

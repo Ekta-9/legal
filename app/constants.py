@@ -11,9 +11,10 @@ GROQ_BACKOFF_BASE_SECONDS = 1.0
 
 # Verification-failure behavior (see PLANNING.md §3)
 VERIFY_MAX_RETRIES = 1  # exactly one retry before showing the warning badge
+DROPPED_MAX_RETRIES = 1  # re-ask once for clauses missing from the model's response, then report them as failed
 
-# Cache
-CACHE_PROMPT_VERSION = "v2"  # bump to invalidate all cached results (v2: prompt carries retrieved document context)
+# Cache — the model name is added to the cache key automatically (see cache/store.py)
+CACHE_PROMPT_VERSION = "v3"  # bump to invalidate all cached results (v3: no-invented-pronouns rule)
 
 # Job store
 JOB_POLL_INTERVAL_HINT_SECONDS = 1.5  # suggested frontend polling interval

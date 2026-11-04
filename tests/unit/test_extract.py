@@ -54,3 +54,39 @@ def test_unsupported_extension_raises():
 def test_text_passthrough():
     clauses = parse_document("pasted.txt", b"1. First clause.\n\n2. Second clause.")
     assert len(clauses) == 2
+
+
+def _docx_bytes(build) -> bytes:
+    import io
+
+    import docx
+
+    document = docx.Document()
+    build(document)
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def test_docx_auto_numbered_clauses_are_split_and_tables_are_read():
+    def build(d):
+        d.add_paragraph("EMPLOYMENT AGREEMENT")
+        d.add_paragraph("Salary: paid monthly.", style="List Number")
+        table = d.add_table(rows=1, cols=2)
+        table.cell(0, 0).text = "Annual salary"
+        table.cell(0, 1).text = "INR 12,00,000"
+        d.add_paragraph("Termination: 60 days notice.", style="List Number")
+
+    clauses = parse_document("contract.docx", _docx_bytes(build))
+
+    assert [c.heading for c in clauses] == ["Preamble", "1. Salary: paid monthly.", "2. Termination: 60 days notice."]
+    assert "Annual salary | INR 12,00,000" in clauses[1].text
+
+
+def test_docx_bullets_are_not_numbered():
+    def build(d):
+        d.add_paragraph("Duties", style="List Bullet")
+        d.add_paragraph("More duties", style="List Bullet")
+
+    text = extract("x.docx", _docx_bytes(build))
+    assert text == "• Duties\n\n• More duties"

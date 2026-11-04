@@ -16,7 +16,9 @@ const params = new URLSearchParams(window.location.search);
 const jobId = params.get("job");
 const targetLang = LANGUAGES[params.get("lang")] ? params.get("lang") : "en";
 
+const rowsById = new Map();
 const renderedIds = new Set();
+let failedCount = 0;
 let totalClauses = 0;
 let jobFinished = false;
 let consecutiveErrors = 0;
@@ -51,14 +53,18 @@ function pad(n) {
   return String(n).padStart(2, "0");
 }
 
-function clauseNumber(id) {
-  // clause ids are "clause_<n>" (1-indexed) — see app/parsing/clause_splitter.py
-  const match = /_(\d+)$/.exec(id);
-  return match ? parseInt(match[1], 10) : null;
+// The document's own numbering ("§4", "§4.2", "§IV"), "PRE" for the preamble,
+// or the position for unnumbered paragraphs — see app/parsing/clause_splitter.py
+function clauseLabel(heading, index) {
+  if (heading === "Preamble") return "PRE";
+  const numbered = /^\s*(\d+(?:\.\d+)*)[.)\s]/.exec(heading || "");
+  const article = /^\s*(?:section|article|clause)\s+(\d+(?:\.\d+)*|[IVXLC]+)/i.exec(heading || "");
+  const match = numbered || article;
+  return match ? `§${match[1]}` : `¶${pad(index + 1)}`;
 }
 
 function updateCounter() {
-  countDoneEl.textContent = pad(renderedIds.size);
+  countDoneEl.textContent = pad(renderedIds.size - failedCount);
   countTotalEl.textContent = pad(totalClauses);
   const pct = totalClauses > 0 ? (renderedIds.size / totalClauses) * 100 : 0;
   progressBarEl.style.width = `${pct}%`;
@@ -99,11 +105,14 @@ async function poll() {
 }
 
 function render(data) {
-  if (data.total_clauses > 0 && totalClauses === 0) {
-    totalClauses = data.total_clauses;
-    for (let n = 1; n <= totalClauses; n++) {
-      clausesEl.appendChild(buildRow(n));
-    }
+  const outline = data.clauses || [];
+  if (outline.length > 0 && totalClauses === 0) {
+    totalClauses = outline.length;
+    outline.forEach((clause, index) => {
+      const row = buildRow(clause, index);
+      rowsById.set(clause.id, row);
+      clausesEl.appendChild(row);
+    });
   }
 
   for (const clause of data.completed) {
@@ -123,10 +132,8 @@ function render(data) {
 
 function finish(data) {
   jobFinished = true;
-  const missing = [];
   for (const row of clausesEl.querySelectorAll(".clause.is-pending")) {
-    missing.push(row.dataset.number);
-    markMissing(row, data.status === "failed");
+    markNotProcessed(row);
   }
 
   if (data.status === "failed") {
@@ -137,8 +144,9 @@ function finish(data) {
     empty.className = "empty-state";
     empty.textContent = "Nothing could be split into clauses. Try pasting the text instead.";
     clausesEl.appendChild(empty);
-  } else if (missing.length > 0) {
-    setStatus(`Done. ${missing.length} clause(s) could not be simplified: §${missing.join(", §")}`, true);
+  } else if (failedCount > 0) {
+    const labels = [...clausesEl.querySelectorAll(".clause.is-missing")].map((row) => row.dataset.label);
+    setStatus(`Done. ${failedCount} clause(s) could not be simplified: ${labels.join(", ")}`, true);
   } else {
     setStatus("Done. All clauses simplified.");
   }
@@ -152,17 +160,17 @@ function el(tag, className, text) {
   return node;
 }
 
-function buildRow(number) {
+function buildRow(clause, index) {
+  const label = clauseLabel(clause.heading, index);
   const row = el("article", "clause is-pending");
-  row.id = `clause-${number}`;
-  row.dataset.number = pad(number);
-  row.setAttribute("aria-label", `Clause ${number}`);
+  row.dataset.label = label;
+  row.setAttribute("aria-label", `Clause ${label}`);
 
-  row.appendChild(el("div", "clause-idx", `§${pad(number)}`));
+  row.appendChild(el("div", "clause-idx", label));
 
   const original = el("div", "clause-original");
   original.appendChild(el("p", "cell-label mono", "Original"));
-  original.appendChild(el("p", "clause-text placeholder", "Waiting..."));
+  original.appendChild(el("p", "clause-text", clause.text));
   row.appendChild(original);
 
   const plain = el("div", "clause-plain");
@@ -177,21 +185,25 @@ function buildRow(number) {
 }
 
 function rowFor(clause) {
-  const number = clauseNumber(clause.id);
-  const existing = number ? document.getElementById(`clause-${number}`) : null;
-  if (existing) return existing;
-  const row = buildRow(number || renderedIds.size);
-  clausesEl.appendChild(row);
-  return row;
+  if (!rowsById.has(clause.id)) {
+    const row = buildRow({ heading: clause.heading, text: clause.original }, rowsById.size);
+    rowsById.set(clause.id, row);
+    clausesEl.appendChild(row);
+  }
+  return rowsById.get(clause.id);
 }
 
 function fillRow(clause) {
   const row = rowFor(clause);
   row.classList.remove("is-pending");
 
-  const originalText = row.querySelector(".clause-original .clause-text");
-  originalText.className = "clause-text";
-  originalText.textContent = clause.original;
+  if (clause.failed) {
+    failedCount += 1;
+    row.classList.add("is-missing");
+    row.querySelector(".clause-plain .clause-text").textContent =
+      "Not simplified: the model did not return this clause, even after a retry. Read the original carefully.";
+    return;
+  }
 
   const plain = row.querySelector(".clause-plain");
   const plainText = plain.querySelector(".clause-text");
@@ -218,14 +230,11 @@ function fillRow(clause) {
   }
 }
 
-function markMissing(row, jobFailed) {
+function markNotProcessed(row) {
   row.classList.remove("is-pending");
   row.classList.add("is-missing");
-  const originalText = row.querySelector(".clause-original .clause-text");
-  originalText.textContent = "Not available here. Check this clause in your document.";
-  row.querySelector(".clause-plain .clause-text").textContent = jobFailed
-    ? "Not processed: the job stopped before reaching this clause."
-    : "Not simplified: the model did not return this clause. Read it in your original document.";
+  row.querySelector(".clause-plain .clause-text").textContent =
+    "Not processed: the job stopped before reaching this clause.";
 }
 
 function buildGrade(readability) {

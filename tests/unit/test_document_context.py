@@ -29,10 +29,8 @@ def _by_id(clauses):
     return {c.id: c for c in clauses}
 
 
-def test_parties_come_from_the_preamble_the_splitter_drops():
+def test_parties_come_from_the_preamble():
     clauses = split_clauses(CONTRACT)
-    assert all("Acme" not in c.text for c in clauses)  # the splitter really does skip the preamble
-
     context = build_document_context(CONTRACT, clauses)
 
     assert context.parties == [
@@ -49,25 +47,25 @@ def test_means_style_definitions_are_indexed():
 
 def test_clause_gets_only_the_definitions_it_uses():
     clauses = _by_id(attach_context(CONTRACT, split_clauses(CONTRACT)))
-    assert set(clauses["clause_2"].context.definitions) == {"Fee"}
-    assert set(clauses["clause_3"].context.definitions) == {"Services"}
+    assert set(clauses["clause_3"].context.definitions) == {"Fee"}
+    assert set(clauses["clause_4"].context.definitions) == {"Services"}
 
 
 def test_defining_clause_does_not_get_its_own_definitions_back():
     clauses = _by_id(attach_context(CONTRACT, split_clauses(CONTRACT)))
-    assert clauses["clause_1"].context.definitions == {}
+    assert clauses["clause_2"].context.definitions == {}
 
 
 def test_cross_reference_retrieves_the_referenced_section():
     clauses = _by_id(attach_context(CONTRACT, split_clauses(CONTRACT)))
-    referenced = clauses["clause_2"].context.referenced_sections
+    referenced = clauses["clause_3"].context.referenced_sections
     assert list(referenced) == ["4"]
     assert "disputed in writing within 5 days" in referenced["4"]
 
 
 def test_references_to_a_schedule_are_not_resolved_against_this_documents_sections():
     clauses = _by_id(attach_context(CONTRACT, split_clauses(CONTRACT)))
-    assert clauses["clause_3"].context.referenced_sections == {}
+    assert clauses["clause_4"].context.referenced_sections == {}
 
 
 def test_sub_clause_reference_falls_back_to_parent_clause():
@@ -100,3 +98,10 @@ def test_context_is_capped_per_clause():
     total = sum(len(v) for v in result.definitions.values())
     assert 0 < total <= MAX_CONTEXT_CHARS
     assert len(result.definitions) < 20
+
+
+def test_preamble_clause_does_not_get_its_own_parties_back():
+    clauses = _by_id(attach_context(CONTRACT, split_clauses(CONTRACT)))
+    assert clauses["clause_1"].heading == "Preamble"
+    assert clauses["clause_1"].context is None or clauses["clause_1"].context.parties == []
+    assert clauses["clause_3"].context.parties == ["Provider: Acme Ltd, a company registered in Pune", "Client: John Doe"]

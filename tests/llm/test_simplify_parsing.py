@@ -215,3 +215,39 @@ async def test_same_clause_text_with_different_context_is_not_served_from_cache(
 
     await simplify_clauses([contract_a], fake_groq, cache=cache)
     assert len(fake_groq.prompts) == 2  # identical context -> cache hit
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [(True, True), (False, False), ("false", False), ("False", False), ("no", False), ("true", True), (0, False), (1, True), (None, True), ("maybe", True)],
+)
+def test_self_check_is_read_explicitly_and_defaults_to_flagged(value, expected):
+    item = {"clause_id": "clause_1", "simplified": "y"}
+    if value is not None:
+        item["self_check"] = value
+    simplified, _ = parse_batch_response(json.dumps({"results": [item]}), CLAUSES[:1])
+    assert simplified[0].self_check is expected
+
+
+class DropsFirstOnce:
+    """Omits the first clause of the first call only."""
+
+    def __init__(self):
+        self.prompts = []
+
+    async def complete(self, prompt):
+        self.prompts.append(prompt)
+        items = json.loads(prompt.split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+        if len(self.prompts) == 1:
+            items = items[1:]
+        return json.dumps({"results": [{"clause_id": c["clause_id"], "simplified": "ok", "self_check": False} for c in items]})
+
+
+@pytest.mark.asyncio
+async def test_dropped_clause_is_re_requested_once_and_recovered():
+    client = DropsFirstOnce()
+    simplified, dropped = await simplify_clauses(CLAUSES, client)
+    assert dropped == []
+    assert {s.id for s in simplified} == {"clause_1", "clause_2"}
+    assert len(client.prompts) == 2
+    assert "clause_2" not in client.prompts[1]  # the retry only asks for what was missing
