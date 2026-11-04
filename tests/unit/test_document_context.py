@@ -115,3 +115,57 @@ def test_abbreviation_dots_in_party_names_are_not_sentence_breaks():
     context = build_document_context(text, split_clauses(text))
 
     assert context.parties == ["Supplier: Northwind Logistics Pvt. Ltd.", "Consultant: Dr. A. Rao"]
+
+
+def _context_for(text: str, heading_prefix: str):
+    clauses = attach_context(text, split_clauses(text))
+    return next(c.context for c in clauses if (c.heading or "").startswith(heading_prefix))
+
+
+def test_plural_and_possessive_uses_of_a_defined_term_get_its_definition():
+    text = '1. Definitions\n"Business Day" means a weekday.\n\n2. Orders\nOrders take 5 Business Days.\n\n3. Supplier\n"Supplier" means Acme.\n\n4. Risk\nThe Supplier\'s risk ends on delivery.'
+    assert "Business Day" in _context_for(text, "2.").definitions
+    assert "Supplier" in _context_for(text, "4.").definitions
+
+
+def test_definition_that_introduces_a_list_keeps_the_list():
+    text = '1. Definitions\n"Goods" means:\n(a) rice; and\n(b) wheat.\n\n2. Delivery\nThe Goods are delivered monthly.'
+    definition = _context_for(text, "2.").definitions["Goods"]
+    assert "rice" in definition and "wheat" in definition
+
+
+def test_single_quoted_definitions_are_found():
+    text = "1. Definitions\n'Confidential Information' means all non-public information.\n\n2. Secrecy\nKeep Confidential Information secret."
+    assert "Confidential Information" in _context_for(text, "2.").definitions
+
+
+def test_definition_is_not_cut_at_an_abbreviation_dot():
+    text = '1. Definitions\n"Premises" means flat No. 302, Sunrise Apartments.\n\n2. Use\nThe Premises are residential.'
+    assert "302, Sunrise Apartments" in _context_for(text, "2.").definitions["Premises"]
+
+
+def test_pointer_definition_resolves_to_the_clause_it_points_to_and_the_defining_clause_gets_nothing_back():
+    text = (
+        '1. Definitions\n"Term" has the meaning given to it in Clause 2.\n\n'
+        '2. Duration\nThis Agreement lasts twelve (12) months (the "Term").\n\n'
+        "3. Renewal\nThe Term may be renewed once."
+    )
+    assert "twelve (12) months" in _context_for(text, "3.").definitions["Term"]
+    assert _context_for(text, "1.") is None or "Term" not in _context_for(text, "1.").definitions
+    assert _context_for(text, "2.") is None or "Term" not in _context_for(text, "2.").definitions
+
+
+def test_reference_lists_and_ranges_retrieve_every_section():
+    text = "\n\n".join(f"{n}. Heading {n}\nBody {n}." for n in range(1, 7)) + "\n\n7. Survival\nClauses 1, 2 and 3 and Sections 4 to 6 survive."
+    assert set(_context_for(text, "7.").referenced_sections) == {"1", "2", "3", "4", "5", "6"}
+
+
+def test_references_into_a_schedule_are_ignored_even_as_a_range():
+    text = "1. Scope\nBody.\n\n2. Pricing\nBody.\n\n3. Non-compete\nAs described in paragraphs 2 to 3 of Schedule B."
+    assert _context_for(text, "3.") is None or not _context_for(text, "3.").referenced_sections
+
+
+def test_second_party_entry_has_no_leading_and():
+    text = 'This Agreement is made between Ravi Kumar, of Pune (the "Owner"), and Priya Shah, of Mumbai (the "Tenant").\n\n1. Rent\nThe Tenant pays the Owner.'
+    context = build_document_context(text, split_clauses(text))
+    assert context.parties[1] == "Tenant: Priya Shah, of Mumbai"

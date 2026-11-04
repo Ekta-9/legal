@@ -61,7 +61,13 @@ pytest -m live         # real Groq call (uses your quota)
 pytest -m slow         # loads the real NLLB translation model
 ```
 
-To compare Groq models on two hand-written contracts (uses your quota):
+To score document-context retrieval against hand-labelled answers (offline, also run by `pytest`):
+
+```bash
+python -m tests.eval.rag_eval --details
+```
+
+To compare Groq models on the hand-written evaluation contracts (uses your quota):
 
 ```bash
 python -m tests.eval.run_eval --model openai/gpt-oss-20b --model openai/gpt-oss-120b

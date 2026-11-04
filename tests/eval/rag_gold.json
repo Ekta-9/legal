@@ -1,0 +1,290 @@
+{
+  "_comment": "Hand-labelled answers for app/rag/document_context.py. Clauses are keyed by their number ('4.2') or 'Preamble'; a clause not listed should receive no definitions and no sections. parties: role -> name that must appear in the extracted party entry. split: 'eval' = the tests/eval contracts, 'dev' = the stress document used while improving retrieval, 'heldout' = written before the improvements and not used to tune them. Caveat: the consultancy_heldout failure on 'paragraphs 2 to 3 of Schedule B' was fixed after it was seen, so that one item is no longer held out; add fresh documents to keep the held-out score honest.",
+  "documents": [
+    {
+      "name": "rental_agreement",
+      "split": "eval",
+      "source": "eval_set",
+      "parties": {
+        "Licensor": "Ravi Kumar",
+        "Licensee": "Priya Shah"
+      },
+      "defined_terms": [
+        "Premises",
+        "Licence Fee"
+      ],
+      "clauses": {
+        "1": {
+          "definitions": [],
+          "sections": [
+            "3"
+          ]
+        },
+        "2": {
+          "definitions": [],
+          "sections": [
+            "8"
+          ]
+        },
+        "3": {
+          "definitions": [
+            "Licence Fee"
+          ],
+          "sections": []
+        },
+        "4": {
+          "definitions": [
+            "Licence Fee"
+          ],
+          "sections": []
+        },
+        "5": {
+          "definitions": [
+            "Premises"
+          ],
+          "sections": []
+        },
+        "7": {
+          "definitions": [
+            "Premises"
+          ],
+          "sections": []
+        },
+        "8": {
+          "definitions": [
+            "Licence Fee"
+          ],
+          "sections": []
+        },
+        "9": {
+          "definitions": [
+            "Premises"
+          ],
+          "sections": []
+        }
+      }
+    },
+    {
+      "name": "employment_agreement",
+      "split": "eval",
+      "source": "eval_set",
+      "parties": {},
+      "defined_terms": [],
+      "clauses": {}
+    },
+    {
+      "name": "services_agreement_hard",
+      "split": "eval",
+      "source": "eval_set",
+      "parties": {
+        "Supplier": "Northwind Logistics Pvt. Ltd.",
+        "Customer": "Kaveri Foods Ltd."
+      },
+      "defined_terms": [
+        "Business Day",
+        "Losses"
+      ],
+      "clauses": {
+        "2": {
+          "definitions": [
+            "Business Day"
+          ],
+          "sections": []
+        },
+        "3": {
+          "definitions": [],
+          "sections": [
+            "7",
+            "8"
+          ]
+        },
+        "5": {
+          "definitions": [],
+          "sections": [
+            "6"
+          ]
+        },
+        "6": {
+          "definitions": [],
+          "sections": [
+            "9"
+          ]
+        },
+        "7": {
+          "definitions": [
+            "Losses"
+          ],
+          "sections": []
+        }
+      }
+    },
+    {
+      "name": "stress",
+      "split": "dev",
+      "text": "This Supply Agreement is made between Meridian Agro Exports Pvt. Ltd., a company incorporated under the Companies Act, 2013 (hereinafter referred to as the \"Seller\"), and Mr. S. K. Iyer, trading as Iyer Traders (\"Buyer\") (each a \"Party\" and together the \"Parties\").\n\n1. Definitions\n\"Effective Date\" shall have the meaning given in Clause 2.\n'Confidential Information' means all technical and commercial information disclosed by either Party.\n\"Goods\" means:\n(a) basmati rice; and\n(b) any other produce listed in the Schedule.\n\"Business Day\" means a day on which banks in Chennai are open.\n\n2. Commencement\nThis Agreement starts on the date it is signed by both Parties (the \"Effective Date\").\n\n3. Orders\nThe Buyer shall place orders for Goods at least 5 Business Days before the required delivery date.\n\n4. Price\nThe price of the Goods is set out in Clause 9 of the Schedule and is fixed for 6 months from the Effective Date.\n\n5. Delivery\nThe Seller shall deliver the Goods to the Buyer's warehouse. Risk passes on delivery in accordance with Clauses 6 and 7.\n\n6. Inspection\nThe Buyer may inspect the goods within 2 Business Days of delivery.\n\n7. Rejection\nThe Buyer may reject defective Goods under sub-clause 6 by written notice.\n\n8. Confidentiality\nNeither Party shall disclose any Confidential Information except as permitted under Section 5(b).\n",
+      "parties": {
+        "Seller": "Meridian Agro Exports Pvt. Ltd.",
+        "Buyer": "S. K. Iyer"
+      },
+      "defined_terms": [
+        "Effective Date",
+        "Confidential Information",
+        "Goods",
+        "Business Day"
+      ],
+      "clauses": {
+        "1": {
+          "definitions": [],
+          "sections": [
+            "2"
+          ]
+        },
+        "3": {
+          "definitions": [
+            "Goods",
+            "Business Day"
+          ],
+          "sections": []
+        },
+        "4": {
+          "definitions": [
+            "Goods",
+            "Effective Date"
+          ],
+          "sections": []
+        },
+        "5": {
+          "definitions": [
+            "Goods"
+          ],
+          "sections": [
+            "6",
+            "7"
+          ]
+        },
+        "6": {
+          "definitions": [
+            "Business Day"
+          ],
+          "sections": []
+        },
+        "7": {
+          "definitions": [
+            "Goods"
+          ],
+          "sections": [
+            "6"
+          ]
+        },
+        "8": {
+          "definitions": [
+            "Confidential Information"
+          ],
+          "sections": [
+            "5"
+          ]
+        }
+      }
+    },
+    {
+      "name": "consultancy_heldout",
+      "split": "heldout",
+      "text": "This CONSULTANCY AGREEMENT is entered into by and between Bluepeak Software Solutions LLP, having its registered office at Bengaluru (the \"Company\"), AND Ms. Ananya R. Menon, an individual (the \"Consultant\").\n\n1. DEFINITIONS AND INTERPRETATION\n1.1 \"Deliverables\" means all reports, software and documents prepared by the Consultant under this Agreement.\n1.2 \"Fees\" means the fees set out in Clause 4.1.\n1.3 \"Intellectual Property Rights\" includes patents, copyrights, trade marks and design rights.\n1.4 \"Term\" has the meaning given to it in Clause 3.\n1.5 “Confidential Information” means any non-public information relating to the Company’s business, clients or employees.\n\n2. SERVICES\nThe Consultant shall provide the services described in Schedule A (the \"Services\") and deliver the Deliverables by the dates agreed in writing.\n\n3. TERM\nThis Agreement commences on the date of signing and continues for twelve (12) months (the \"Term\"), unless terminated earlier under Clause 8.\n\n4. FEES AND PAYMENT\n4.1 The Company shall pay the Consultant a fee of INR 1,20,000 per month.\n4.2 Fees are payable within 30 days of receipt of a valid invoice, subject to Clauses 4.3 and 4.4.\n4.3 The Company may set off any amount owed by the Consultant against the Fees.\n4.4 All Fees are exclusive of GST.\n\n5. INTELLECTUAL PROPERTY\nAll Intellectual Property Rights in the Deliverables shall vest in the Company upon payment of the relevant Fees.\n\n6. CONFIDENTIALITY\nThe Consultant shall keep the Company's Confidential Information secret during the Term and for 3 years after it ends.\n\n7. NON-COMPETE\nDuring the Term, the Consultant shall not provide services similar to the Services to any competitor of the Company, as described in paragraphs 2 to 3 of Schedule B.\n\n8. TERMINATION\nEither party may terminate this Agreement on 30 days' notice. Clauses 5, 6 and 9 survive termination.\n\n9. LIABILITY\nThe Consultant's liability under this Agreement shall not exceed the Fees paid in the preceding 6 months.\n",
+      "parties": {
+        "Company": "Bluepeak Software Solutions LLP",
+        "Consultant": "Ananya R. Menon"
+      },
+      "defined_terms": [
+        "Deliverables",
+        "Fees",
+        "Intellectual Property Rights",
+        "Term",
+        "Confidential Information",
+        "Services"
+      ],
+      "clauses": {
+        "1.2": {
+          "definitions": [],
+          "sections": [
+            "4.1"
+          ]
+        },
+        "1.4": {
+          "definitions": [],
+          "sections": [
+            "3"
+          ]
+        },
+        "2": {
+          "definitions": [
+            "Deliverables"
+          ],
+          "sections": []
+        },
+        "3": {
+          "definitions": [],
+          "sections": [
+            "8"
+          ]
+        },
+        "4.2": {
+          "definitions": [
+            "Fees"
+          ],
+          "sections": [
+            "4.3",
+            "4.4"
+          ]
+        },
+        "4.3": {
+          "definitions": [
+            "Fees"
+          ],
+          "sections": []
+        },
+        "4.4": {
+          "definitions": [
+            "Fees"
+          ],
+          "sections": []
+        },
+        "5": {
+          "definitions": [
+            "Intellectual Property Rights",
+            "Deliverables",
+            "Fees"
+          ],
+          "sections": []
+        },
+        "6": {
+          "definitions": [
+            "Confidential Information",
+            "Term"
+          ],
+          "sections": []
+        },
+        "7": {
+          "definitions": [
+            "Term",
+            "Services"
+          ],
+          "sections": []
+        },
+        "8": {
+          "definitions": [],
+          "sections": [
+            "5",
+            "6",
+            "9"
+          ]
+        },
+        "9": {
+          "definitions": [
+            "Fees"
+          ],
+          "sections": []
+        }
+      }
+    }
+  ]
+}
