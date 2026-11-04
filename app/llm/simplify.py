@@ -7,6 +7,7 @@ from typing import Protocol
 
 from app.config import settings
 from app.constants import DROPPED_MAX_RETRIES
+from app.llm.facts import missing_numbers
 from app.llm.groq_client import batch_items
 from app.models.schemas import Clause, ReadabilityScore, SimplifiedClause
 from app.scoring.readability import readability_delta
@@ -58,6 +59,8 @@ def build_prompt(batch: list[Clause]) -> str:
         "add obligations that appear only in the context.\n"
         "Refer to parties by their name or role. Do not add details the original does not "
         "state, such as a person's gender or pronouns.\n"
+        "Keep every number, amount, date, percentage, deadline and section reference from "
+        "the original; write them as digits.\n"
         "Set self_check to true if you are not fully confident the simplification is "
         "faithful to the original, or if the clause is ambiguous or risky to simplify.\n\n"
         f"Clauses:\n{json.dumps(items, indent=2)}\n\n"
@@ -118,6 +121,7 @@ def parse_batch_response(
                 original=clause.text,
                 simplified=stripped_simplified,
                 self_check=_parse_self_check(item.get("self_check")),
+                missing_numbers=missing_numbers(clause.text, stripped_simplified),
                 readability=ReadabilityScore(**readability_delta(clause.text, stripped_simplified)),
             )
         )
@@ -153,7 +157,8 @@ async def simplify_clauses(
     A batch whose LLM call raises (after the client's own retries) does not
     abort the other batches: its clauses are reported as dropped and the
     exception is passed to `on_batch_error`. Results the model flagged as
-    unsure are not cached, so a later run gets a fresh attempt.
+    unsure, or that lost a number from the original, are not cached, so a
+    later run gets a fresh attempt.
     `on_batch_complete` may be sync or async.
     """
     to_process: list[Clause] = []
@@ -168,6 +173,7 @@ async def simplify_clauses(
                     original=clause.text,
                     simplified=hit["simplified"],
                     self_check=hit["self_check"],
+                    missing_numbers=missing_numbers(clause.text, hit["simplified"]),
                     readability=ReadabilityScore(
                         **readability_delta(clause.text, hit["simplified"])
                     ),
@@ -214,7 +220,7 @@ async def simplify_clauses(
         if cache is not None:
             by_id = {c.id: c for c in batch}
             for s in simplified:
-                if not s.self_check:
+                if not s.self_check and not s.missing_numbers:
                     cache.put(cache_key(by_id[s.id]), s.simplified, s.self_check, s.heading)
         await report(simplified, dropped)
         return simplified, dropped

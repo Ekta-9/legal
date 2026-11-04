@@ -39,6 +39,8 @@ class SimplifiedClause(BaseModel):
     simplified: str
     self_check: bool  # True => model flagged this simplification as low-confidence/risky
     failed: bool = False  # True => the model never returned this clause; `simplified` is empty
+    # numbers from the original that the simplification lost — a code check, independent of self_check
+    missing_numbers: list[str] = []
     readability: ReadabilityScore | None = None
     glossary_matches: list[GlossaryMatch] = []
 

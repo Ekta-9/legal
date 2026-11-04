@@ -1,0 +1,35 @@
+{
+  "_comment": "Hand-written evaluation contracts. For each clause heading, must_mention lists concepts the plain version must keep; each concept is a list of acceptable words (any one counts, case-insensitive). Numbers are checked separately by app/llm/facts.py.",
+  "documents": [
+    {
+      "name": "rental_agreement",
+      "text": "This Leave and Licence Agreement is made on 1 April 2026 between Ravi Kumar, residing at 14 MG Road, Pune (hereinafter the \"Licensor\"), and Priya Shah, residing at 7 FC Road, Pune (hereinafter the \"Licensee\").\n\n1. Definitions\n\"Premises\" means the flat bearing No. 302, Sunrise Apartments, Baner, Pune.\n\"Licence Fee\" means the monthly sum payable under Clause 3.\n\n2. Term\nThis licence shall be for a period of 11 (eleven) months commencing from 1 April 2026, unless terminated earlier in accordance with Clause 8.\n\n3. Licence Fee\nThe Licensee shall pay the Licensor a Licence Fee of Rs. 25,000/- per month on or before the 5th day of each calendar month by bank transfer.\n\n4. Late Payment\nIf the Licence Fee is not received within 7 days of its due date, the Licensee shall pay interest at the rate of 2% per month on the outstanding amount, without prejudice to any other remedy of the Licensor.\n\n5. Security Deposit\nThe Licensee has paid an interest-free refundable security deposit of Rs. 75,000/-, which shall be refunded within 30 days of the Licensee vacating the Premises, after deducting any unpaid dues or the cost of repairing damage beyond normal wear and tear.\n\n6. Maintenance\nThe Licensee shall bear the cost of electricity and minor repairs not exceeding Rs. 2,000/- per instance. Structural repairs and society maintenance charges shall be borne by the Licensor.\n\n7. Use of Premises\nThe Licensee shall use the Premises solely for residential purposes and shall not sub-let, assign or part with possession of the Premises or any part thereof without the prior written consent of the Licensor.\n\n8. Termination\nEither party may terminate this licence by giving 1 (one) month's prior written notice to the other party. The Licensor may terminate this licence forthwith if the Licence Fee remains unpaid for 2 consecutive months.\n\n9. Indemnity\nThe Licensee shall indemnify the Licensor against any loss or damage caused to the Premises by the negligence of the Licensee or the Licensee's guests, save and except damage caused by fire, flood or other events beyond the Licensee's reasonable control.\n\n10. Governing Law\nThis Agreement shall be governed by the laws of India and the courts at Pune shall have exclusive jurisdiction.",
+      "expect": {
+        "Preamble": [["Ravi"], ["Priya"]],
+        "1. Definitions": [["flat", "apartment", "premises"], ["Baner", "Sunrise"], ["month"]],
+        "2. Term": [["11", "eleven"], ["unless", "earlier", "before"]],
+        "3. Licence Fee": [["25,000", "25000"], ["5th", "fifth", "5"], ["bank"]],
+        "4. Late Payment": [["interest"], ["2%", "2 %", "two percent"], ["7", "seven"]],
+        "5. Security Deposit": [["75,000", "75000"], ["30", "thirty"], ["damage", "repair"], ["wear and tear", "wear"], ["unpaid", "dues", "owe"]],
+        "6. Maintenance": [["electricity"], ["2,000", "2000"], ["structural"], ["society"]],
+        "7. Use of Premises": [["residential", "residence", "live", "living", "home"], ["sub-let", "sublet", "rent out", "sub-lease"], ["written"], ["consent", "permission", "approval"]],
+        "8. Termination": [["notice"], ["written", "writing"], ["2", "two"], ["unpaid", "not paid", "doesn't pay", "does not pay", "fails to pay"]],
+        "9. Indemnity": [["negligence", "careless"], ["guest"], ["fire"], ["flood"], ["except", "not responsible", "not liable", "doesn't cover", "does not cover", "unless", "isn't responsible", "is not responsible"]],
+        "10. Governing Law": [["India"], ["Pune"], ["court"]]
+      }
+    },
+    {
+      "name": "employment_agreement",
+      "text": "1. Appointment\nThe Company hereby appoints the Employee as Senior Analyst with effect from 1 June 2026, subject to satisfactory verification of the Employee's educational certificates and previous employment records.\n\n2. Probation\nThe Employee shall be on probation for a period of 6 (six) months, which may be extended by up to 3 (three) months at the sole discretion of the Company. During probation, either party may terminate employment by giving 15 days' written notice.\n\n3. Remuneration\nThe Employee shall be paid a gross annual salary of Rs. 12,00,000/-, payable in equal monthly instalments, subject to deduction of applicable taxes at source.\n\n4. Leave\nThe Employee shall be entitled to 18 days of paid leave per calendar year. Unused leave of up to 10 days may be carried forward to the next year; any balance in excess thereof shall lapse.\n\n5. Confidentiality\nThe Employee shall not, during employment or at any time thereafter, disclose any Confidential Information of the Company to any third party, except as required by law or with the prior written consent of the Company.\n\n6. Non-Solicitation\nFor a period of 12 months after the termination of employment, the Employee shall not directly or indirectly solicit any client or employee of the Company.\n\n7. Termination\nAfter confirmation, either party may terminate employment by giving 60 days' written notice or payment of salary in lieu thereof. The Company may terminate employment without notice in the event of gross misconduct.",
+      "expect": {
+        "1. Appointment": [["Senior Analyst"], ["verif", "check"], ["certificate"]],
+        "2. Probation": [["probation", "trial"], ["6", "six"], ["3", "three"], ["15", "fifteen"], ["extend"]],
+        "3. Remuneration": [["12,00,000", "1200000", "12 lakh", "1,200,000"], ["tax"], ["month"]],
+        "4. Leave": [["18", "eighteen"], ["10", "ten"], ["carr", "roll"], ["lapse", "lose", "lost", "expire", "forfeit"]],
+        "5. Confidentiality": [["confidential", "secret"], ["law", "legal"], ["consent", "permission", "approval"], ["after", "thereafter", "even when", "even after", "any time"]],
+        "6. Non-Solicitation": [["12", "twelve", "one year", "1 year"], ["client"], ["employee", "staff", "worker"]],
+        "7. Termination": [["60", "sixty"], ["notice"], ["salary", "pay"], ["misconduct"], ["without notice", "immediately", "no notice"]]
+      }
+    }
+  ]
+}

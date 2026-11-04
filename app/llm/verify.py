@@ -7,14 +7,15 @@ async def retry_flagged_clauses(
     batch: list[Clause],
     client: CompletesPrompts,
 ) -> list[SimplifiedClause]:
-    """PLANNING.md's verification-failure rule: a self_check-flagged clause
-    gets exactly ONE retry. If still flagged after the retry, it is returned
-    as-is (self_check remains True) so the frontend renders the warning
-    badge — never suppressed, never retried a second time. If the retry
-    response drops the clause entirely (malformed/partial), the original
-    flagged result is kept rather than lost.
+    """PLANNING.md's verification-failure rule: a clause that is flagged —
+    by the model's own self_check, or by the code check finding a number
+    from the original missing — gets exactly ONE retry. If still flagged
+    after the retry, it is returned as-is so the frontend renders the
+    warning — never suppressed, never retried a second time. If the retry
+    response drops the clause entirely (malformed/partial), or loses more
+    numbers than the first attempt, the first result is kept.
     """
-    flagged_ids = {s.id for s in simplified if s.self_check}
+    flagged_ids = {s.id for s in simplified if s.self_check or s.missing_numbers}
     if not flagged_ids:
         return simplified
 
@@ -26,7 +27,13 @@ async def retry_flagged_clauses(
     retried, _dropped = parse_batch_response(raw, to_retry)
     retried_by_id = {r.id: r for r in retried}
 
-    return [retried_by_id.get(s.id, s) for s in simplified]
+    def better(first: SimplifiedClause) -> SimplifiedClause:
+        retry = retried_by_id.get(first.id)
+        if retry is None or len(retry.missing_numbers) > len(first.missing_numbers):
+            return first
+        return retry
+
+    return [better(s) for s in simplified]
 
 
 def make_verifier(client: CompletesPrompts):

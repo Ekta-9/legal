@@ -9,7 +9,9 @@ from app.config import settings
 from app.constants import (
     GROQ_BACKOFF_BASE_SECONDS,
     GROQ_MAX_BACKOFF_SECONDS,
+    GROQ_MAX_COMPLETION_TOKENS,
     GROQ_MAX_RETRIES,
+    GROQ_TEMPERATURE,
     GROQ_TIMEOUT_SECONDS,
 )
 
@@ -41,8 +43,14 @@ def _default_call_fn(api_key: str | None, model: str | None) -> CallFn:
             model=resolved_model,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
+            temperature=GROQ_TEMPERATURE,
+            max_completion_tokens=GROQ_MAX_COMPLETION_TOKENS,
         )
-        return response.choices[0].message.content or ""
+        choice = response.choices[0]
+        if choice.finish_reason == "length":
+            # the JSON is cut off; parse_batch_response reports its clauses as dropped and they are re-requested
+            logger.warning("Groq response hit the %d-token limit and was truncated", GROQ_MAX_COMPLETION_TOKENS)
+        return choice.message.content or ""
 
     return call
 

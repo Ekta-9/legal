@@ -306,3 +306,24 @@ async def test_results_the_model_was_unsure_about_are_not_cached(tmp_path):
     assert {s.id: s.self_check for s in simplified} == {"clause_1": True, "clause_2": False}
     assert cache.get(CLAUSES[0].text) is None
     assert cache.get(CLAUSES[1].text) is not None
+
+
+@pytest.mark.asyncio
+async def test_result_that_lost_a_number_is_flagged_and_not_cached(tmp_path):
+    from app.cache.store import CacheStore
+
+    class DropsTheAmount:
+        async def complete(self, prompt):
+            items = json.loads(prompt.split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+            return json.dumps({"results": [{"clause_id": c["clause_id"], "simplified": "Pay rent.", "self_check": False} for c in items]})
+
+    clause = Clause(id="clause_1", text="Pay Rs. 15,000 monthly.")
+    cache = CacheStore(tmp_path / "cache.sqlite3")
+    simplified, _ = await simplify_clauses([clause], DropsTheAmount(), cache=cache)
+
+    assert simplified[0].missing_numbers == ["15,000"]
+    assert cache.get(clause.text) is None
+
+
+def test_prompt_asks_for_every_number_to_be_kept():
+    assert "Keep every number" in build_prompt(CLAUSES)

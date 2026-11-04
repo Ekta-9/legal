@@ -5,12 +5,15 @@ GROQ_MAX_RETRIES = 4  # attempts after the first, for rate limits, timeouts, con
 GROQ_BACKOFF_BASE_SECONDS = 1.0
 GROQ_MAX_BACKOFF_SECONDS = 30.0  # cap on any single wait, including Groq's retry-after
 GROQ_TIMEOUT_SECONDS = 60.0
+GROQ_TEMPERATURE = 0.2  # low: faithful rewording, not creative variation
+# gpt-oss counts its reasoning tokens against this cap too; 6 clauses with context fit with room to spare
+GROQ_MAX_COMPLETION_TOKENS = 8192
 
 # Response handling (flagged clauses get one retry in app/llm/verify.py)
 DROPPED_MAX_RETRIES = 1  # re-ask once for clauses missing from the model's response, then report them as failed
 
 # Cache — the model name is added to the cache key automatically (see cache/store.py)
-CACHE_PROMPT_VERSION = "v3"  # bump to invalidate all cached results (v3: no-invented-pronouns rule)
+CACHE_PROMPT_VERSION = "v4"  # bump to invalidate all cached results (v4: keep-every-number rule)
 
 # Input limits: keep one upload from exhausting memory or the Groq quota
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024

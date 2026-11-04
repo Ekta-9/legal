@@ -122,3 +122,34 @@ async def test_make_verifier_binds_client_and_matches_verify_fn_signature():
 
     assert result[0].simplified == "fixed"
     assert result[0].self_check is False
+
+
+RENT = Clause(id="clause_1", text="Pay Rs. 15,000 by the 5th of each month.")
+
+
+@pytest.mark.asyncio
+async def test_clause_that_lost_a_number_is_retried_even_if_the_model_was_confident():
+    first = SimplifiedClause(
+        id="clause_1", original=RENT.text, simplified="Pay rent monthly.", self_check=False, missing_numbers=["15,000", "5"]
+    )
+    client = ScriptedClient(
+        [_response([{"clause_id": "clause_1", "simplified": "Pay Rs 15,000 by the 5th of every month.", "self_check": False}])]
+    )
+
+    result = await retry_flagged_clauses([first], [RENT], client)
+
+    assert len(client.calls) == 1
+    assert result[0].missing_numbers == []
+
+
+@pytest.mark.asyncio
+async def test_retry_that_loses_more_numbers_is_discarded():
+    first = SimplifiedClause(
+        id="clause_1", original=RENT.text, simplified="Pay Rs 15,000 monthly.", self_check=False, missing_numbers=["5"]
+    )
+    client = ScriptedClient([_response([{"clause_id": "clause_1", "simplified": "Pay rent.", "self_check": False}])])
+
+    result = await retry_flagged_clauses([first], [RENT], client)
+
+    assert result[0].simplified == "Pay Rs 15,000 monthly."
+    assert result[0].missing_numbers == ["5"]

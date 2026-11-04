@@ -10,6 +10,7 @@ Upload a legal contract and get each clause rewritten in plain English, shown be
 - **Clause splitting** that follows the document's own numbering (`1.`, `1.1`, `SECTION 2`, `ARTICLE IV`), keeps the preamble that names the parties, and falls back to ALL-CAPS headings or paragraphs for unnumbered documents. In DOCX files it reads Word's automatic numbering and tables.
 - **Document context (RAG)**: each clause is sent to the model with the parties, the definitions of terms it uses, and the sections it refers to, all retrieved from the same contract.
 - **Plain-English rewrite** of every clause via Groq (`openai/gpt-oss-120b` by default). The model also reports when it is unsure, and those clauses are marked "model unsure" (the model's own judgement, not an independent check).
+- **Numbers check**: every amount, date, deadline and section number in the original must also appear in the plain version. This is checked in code, not by the model. A clause that loses one is retried once, then marked with the missing numbers.
 - **Nothing silently disappears**: a clause the model fails to return is retried once, then shown as "not simplified" with its original text.
 - **Readability score** (Flesch-Kincaid grade, before → after) and glossary terms per clause.
 - **Hindi / Marathi translation (experimental)** of the plain-English text with a local NLLB model. It is slow on CPU and has not been reviewed for legal accuracy.
@@ -59,6 +60,14 @@ pytest                 # offline: no API key or network needed
 pytest -m live         # real Groq call (uses your quota)
 pytest -m slow         # loads the real NLLB translation model
 ```
+
+To compare Groq models on two hand-written contracts (uses your quota):
+
+```bash
+python -m tests.eval.run_eval --model openai/gpt-oss-20b --model openai/gpt-oss-120b
+```
+
+It reports, per model, how many clauses came back, kept every number, and kept the required concepts (exceptions, conditions, who pays), plus the reading grade before and after. These are keyword checks, not a review of legal accuracy.
 
 ## How it works
 
