@@ -1,6 +1,11 @@
+import asyncio
+import logging
 from typing import Protocol
 
+import groq
+
 from app.cache.store import CacheStore
+from app.constants import MAX_CLAUSES
 from app.jobs.manager import job_manager
 from app.llm.groq_client import GroqClient
 from app.llm.simplify import ClauseCache, CompletesPrompts, simplify_clauses
@@ -9,6 +14,10 @@ from app.models.schemas import ClauseOutline, GlossaryMatch, JobStatus, Simplifi
 from app.parsing.clause_splitter import split_clauses
 from app.parsing.extract import ExtractionError, extract
 from app.rag.document_context import attach_context
+
+logger = logging.getLogger(__name__)
+
+GENERIC_FAILURE = "Something went wrong while processing the document. Please try again."
 
 
 class GlossarySearch(Protocol):
@@ -67,12 +76,36 @@ def set_glossary_store(store: GlossarySearch | None) -> None:
     _glossary_store = store
 
 
+def user_message(error: Exception) -> str:
+    """What the reader is told when the model can't be reached. Raw exception
+    text can contain request details, so it only goes to the log.
+    """
+    if isinstance(error, groq.AuthenticationError) or (
+        isinstance(error, groq.GroqError) and not isinstance(error, groq.APIError)
+    ):
+        # a bare GroqError is what the SDK raises when no API key is set at all
+        return "The Groq API key is missing or invalid. Set GROQ_API_KEY in .env and restart the server."
+    if isinstance(error, groq.RateLimitError):
+        return "Groq's rate limit was reached. Wait a minute and try again."
+    if isinstance(error, groq.APIConnectionError):
+        return "Could not reach Groq. Check your internet connection and try again."
+    if isinstance(error, groq.APIStatusError):
+        return "Groq returned an error. Please try again in a few minutes."
+    return GENERIC_FAILURE
+
+
+def _glossary_matches(texts: list[str]) -> list[list[GlossaryMatch]]:
+    store = get_glossary_store()
+    return [[GlossaryMatch(**match) for match in store.search(text)] for text in texts]
+
+
 async def process_document(job_id: str, filename: str, content: bytes) -> None:
     try:
         await _process_document(job_id, filename, content)
     except Exception:
         # last line of defence: an unexpected error must end the job, never leave it "processing" forever
-        job_manager.fail(job_id, "Something went wrong while processing the document. Please try again.")
+        logger.exception("Job %s failed unexpectedly", job_id)
+        job_manager.fail(job_id, GENERIC_FAILURE)
 
 
 async def _process_document(job_id: str, filename: str, content: bytes) -> None:
@@ -81,15 +114,25 @@ async def _process_document(job_id: str, filename: str, content: bytes) -> None:
     try:
         text = extract(filename, content)
     except ExtractionError as e:
+        logger.info("Job %s: could not extract %s: %s", job_id, filename, e)
         job_manager.fail(job_id, str(e))
         return
     clauses = split_clauses(text)
+    logger.info("Job %s: %s split into %d clauses", job_id, filename, len(clauses))
+    if len(clauses) > MAX_CLAUSES:
+        job_manager.fail(
+            job_id,
+            f"This document has {len(clauses)} clauses; the limit is {MAX_CLAUSES}. "
+            "Split it into smaller parts and upload them separately.",
+        )
+        return
 
     try:
         # built from the full text, not the clauses, so parties and definitions anywhere in the document are found
         clauses = attach_context(text, clauses)
     except Exception:
-        pass  # retrieval only improves the prompt; simplify without it rather than fail the job
+        # retrieval only improves the prompt; simplify without it rather than fail the job
+        logger.exception("Job %s: context retrieval failed, continuing without it", job_id)
 
     job_manager.set_clauses(job_id, [ClauseOutline(id=c.id, heading=c.heading, text=c.text) for c in clauses])
     if not clauses:
@@ -97,18 +140,16 @@ async def _process_document(job_id: str, filename: str, content: bytes) -> None:
         return
     clauses_by_id = {c.id: c for c in clauses}
 
-    def on_batch_complete(simplified: list[SimplifiedClause], dropped: list[str]) -> None:
-        glossary_store = get_glossary_store() if simplified else None
-        enriched = [
-            s.model_copy(
-                update={
-                    "glossary_matches": [
-                        GlossaryMatch(**match) for match in glossary_store.search(s.original)
-                    ]
-                }
-            )
-            for s in simplified
-        ]
+    async def on_batch_complete(simplified: list[SimplifiedClause], dropped: list[str]) -> None:
+        enriched = simplified
+        if simplified:
+            try:
+                # embedding is CPU-bound (and the first call loads the model), so keep it off the event loop
+                matches = await asyncio.to_thread(_glossary_matches, [s.original for s in simplified])
+                enriched = [s.model_copy(update={"glossary_matches": m}) for s, m in zip(simplified, matches)]
+            except Exception:
+                # glossary terms are a display extra; show the simplified clauses without them
+                logger.exception("Job %s: glossary lookup failed", job_id)
         # still missing after the retry: report them instead of letting them silently vanish
         failed = [
             SimplifiedClause(
@@ -123,17 +164,26 @@ async def _process_document(job_id: str, filename: str, content: bytes) -> None:
         ]
         job_manager.add_completed(job_id, enriched + failed)
 
-    client = get_client()
+    errors: list[Exception] = []
     try:
-        await simplify_clauses(
-            clauses,
-            client,
-            on_batch_complete=on_batch_complete,
-            cache=get_cache_store(),
-            verify_fn=make_verifier(client),
-        )
+        client = get_client()
     except Exception as e:
-        job_manager.fail(job_id, f"simplification failed: {e}")
+        logger.exception("Job %s: could not create the Groq client", job_id)
+        job_manager.fail(job_id, user_message(e))
         return
 
+    simplified, _dropped = await simplify_clauses(
+        clauses,
+        client,
+        on_batch_complete=on_batch_complete,
+        cache=get_cache_store(),
+        verify_fn=make_verifier(client),
+        on_batch_error=errors.append,
+    )
+
+    if errors and not simplified:
+        # nothing came back at all: say why, rather than a page of "not simplified" rows
+        job_manager.fail(job_id, user_message(errors[0]))
+        return
+    logger.info("Job %s: done, %d of %d clauses simplified", job_id, len(simplified), len(clauses))
     job_manager.set_status(job_id, JobStatus.DONE)

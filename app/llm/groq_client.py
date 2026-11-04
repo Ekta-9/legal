@@ -1,17 +1,24 @@
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-from groq import AsyncGroq, RateLimitError
+from groq import APIConnectionError, AsyncGroq, InternalServerError, RateLimitError
 
 from app.config import settings
 from app.constants import (
     GROQ_BACKOFF_BASE_SECONDS,
-    GROQ_CONCURRENCY,
+    GROQ_MAX_BACKOFF_SECONDS,
     GROQ_MAX_RETRIES,
+    GROQ_TIMEOUT_SECONDS,
 )
 
+logger = logging.getLogger(__name__)
+
 T = TypeVar("T")
+
+# APIConnectionError includes APITimeoutError
+RETRYABLE_ERRORS = (RateLimitError, APIConnectionError, InternalServerError)
 
 CallFn = Callable[[str], Awaitable[str]]
 
@@ -21,7 +28,12 @@ def batch_items(items: list[T], size: int) -> list[list[T]]:
 
 
 def _default_call_fn(api_key: str | None, model: str | None) -> CallFn:
-    client = AsyncGroq(api_key=api_key or settings.groq_api_key)
+    # max_retries=0: GroqClient.complete owns retries, so they don't multiply with the SDK's
+    client = AsyncGroq(
+        api_key=api_key or settings.groq_api_key,
+        max_retries=0,
+        timeout=GROQ_TIMEOUT_SECONDS,
+    )
     resolved_model = model or settings.groq_model
 
     async def call(prompt: str) -> str:
@@ -35,10 +47,20 @@ def _default_call_fn(api_key: str | None, model: str | None) -> CallFn:
     return call
 
 
+def _retry_after(error: Exception) -> float | None:
+    response = getattr(error, "response", None)
+    if response is None:
+        return None
+    try:
+        return float(response.headers.get("retry-after"))
+    except (TypeError, ValueError):
+        return None
+
+
 class GroqClient:
     """Async wrapper around the Groq SDK: concurrency ceiling + exponential
-    backoff on 429. The underlying call is injectable (`call_fn`) so tests
-    never need a real API key or network access.
+    backoff on rate limits and transient failures. The underlying call is
+    injectable (`call_fn`) so tests never need a real API key or network access.
     """
 
     def __init__(
@@ -46,13 +68,13 @@ class GroqClient:
         call_fn: CallFn | None = None,
         api_key: str | None = None,
         model: str | None = None,
-        concurrency: int = GROQ_CONCURRENCY,
+        concurrency: int | None = None,
         max_retries: int = GROQ_MAX_RETRIES,
         backoff_base: float = GROQ_BACKOFF_BASE_SECONDS,
         sleep_fn: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ):
         self._call_fn = call_fn or _default_call_fn(api_key, model)
-        self._semaphore = asyncio.Semaphore(concurrency)
+        self._semaphore = asyncio.Semaphore(concurrency or settings.groq_concurrency)
         self._max_retries = max_retries
         self._backoff_base = backoff_base
         self._sleep_fn = sleep_fn
@@ -63,9 +85,16 @@ class GroqClient:
             while True:
                 try:
                     return await self._call_fn(prompt)
-                except RateLimitError:
+                except RETRYABLE_ERRORS as e:
                     attempt += 1
                     if attempt > self._max_retries:
                         raise
                     delay = self._backoff_base * (2 ** (attempt - 1))
+                    if isinstance(e, RateLimitError):
+                        delay = max(delay, _retry_after(e) or 0.0)
+                    delay = min(delay, GROQ_MAX_BACKOFF_SECONDS)
+                    logger.warning(
+                        "Groq call failed (%s), retry %d/%d in %.1fs",
+                        type(e).__name__, attempt, self._max_retries, delay,
+                    )
                     await self._sleep_fn(delay)

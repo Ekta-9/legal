@@ -77,3 +77,86 @@ async def test_429_exhausts_retries_and_raises():
 
     with pytest.raises(RateLimitError):
         await client.complete("prompt")
+
+
+def _error_with_status(error_cls, status: int, headers: dict | None = None):
+    request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+    response = httpx.Response(status, request=request, headers=headers or {})
+    return error_cls("error", response=response, body=None)
+
+
+@pytest.mark.asyncio
+async def test_connection_errors_and_5xx_are_retried():
+    from groq import APIConnectionError, InternalServerError
+
+    request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+    errors = [APIConnectionError(request=request), _error_with_status(InternalServerError, 503)]
+
+    async def call_fn(prompt: str) -> str:
+        if errors:
+            raise errors.pop(0)
+        return "ok"
+
+    async def fake_sleep(delay: float) -> None:
+        return None
+
+    client = GroqClient(call_fn=call_fn, sleep_fn=fake_sleep)
+    assert await client.complete("prompt") == "ok"
+
+
+@pytest.mark.asyncio
+async def test_auth_errors_are_not_retried():
+    from groq import AuthenticationError
+
+    attempts = 0
+
+    async def call_fn(prompt: str) -> str:
+        nonlocal attempts
+        attempts += 1
+        raise _error_with_status(AuthenticationError, 401)
+
+    client = GroqClient(call_fn=call_fn, sleep_fn=lambda delay: asyncio.sleep(0))
+    with pytest.raises(AuthenticationError):
+        await client.complete("prompt")
+    assert attempts == 1
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_waits_for_retry_after_but_never_longer_than_the_cap():
+    from app.constants import GROQ_MAX_BACKOFF_SECONDS
+
+    errors = [
+        _error_with_status(RateLimitError, 429, {"retry-after": "7"}),
+        _error_with_status(RateLimitError, 429, {"retry-after": "3600"}),
+    ]
+    sleeps: list[float] = []
+
+    async def call_fn(prompt: str) -> str:
+        if errors:
+            raise errors.pop(0)
+        return "ok"
+
+    async def fake_sleep(delay: float) -> None:
+        sleeps.append(delay)
+
+    client = GroqClient(call_fn=call_fn, backoff_base=1.0, sleep_fn=fake_sleep)
+    await client.complete("prompt")
+    assert sleeps == [7.0, GROQ_MAX_BACKOFF_SECONDS]
+
+
+def test_sdk_retries_are_disabled_so_they_do_not_multiply_with_ours():
+    from app.llm import groq_client
+
+    captured = {}
+
+    class FakeAsyncGroq:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    original = groq_client.AsyncGroq
+    groq_client.AsyncGroq = FakeAsyncGroq
+    try:
+        groq_client._default_call_fn("test-key", "test-model")
+    finally:
+        groq_client.AsyncGroq = original
+    assert captured["max_retries"] == 0

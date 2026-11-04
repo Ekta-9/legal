@@ -1,10 +1,14 @@
 import asyncio
+import logging
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 
+from app.constants import MAX_TRANSLATE_CHARS
 from app.models.schemas import TranslateRequest, TranslateResponse
 from app.translation.nllb import UnsupportedLanguageError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/translate", tags=["translation"])
 
@@ -34,11 +38,16 @@ def set_translate_fn(fn: TranslateFn | None) -> None:
 async def translate_text(request: TranslateRequest) -> TranslateResponse:
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="text is empty")
+    if len(request.text) > MAX_TRANSLATE_CHARS:
+        raise HTTPException(status_code=413, detail=f"text is too long (limit {MAX_TRANSLATE_CHARS:,} characters)")
 
     try:
         # NLLB generation is CPU-bound and synchronous — run off the event loop
         translated = await asyncio.to_thread(get_translate_fn(), request.text, request.target_lang)
     except UnsupportedLanguageError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("Translation to %s failed", request.target_lang)
+        raise HTTPException(status_code=500, detail="translation failed on the server") from e
 
     return TranslateResponse(translated_text=translated)

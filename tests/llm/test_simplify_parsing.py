@@ -251,3 +251,58 @@ async def test_dropped_clause_is_re_requested_once_and_recovered():
     assert {s.id for s in simplified} == {"clause_1", "clause_2"}
     assert len(client.prompts) == 2
     assert "clause_2" not in client.prompts[1]  # the retry only asks for what was missing
+
+
+class FailsBatchContaining:
+    """Raises for any batch that includes `clause_id`; echoes the rest."""
+
+    def __init__(self, clause_id, error):
+        self.clause_id = clause_id
+        self.error = error
+
+    async def complete(self, prompt):
+        items = json.loads(prompt.split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+        if any(c["clause_id"] == self.clause_id for c in items):
+            raise self.error
+        return json.dumps({"results": [{"clause_id": c["clause_id"], "simplified": "ok", "self_check": False} for c in items]})
+
+
+@pytest.mark.asyncio
+async def test_a_failing_batch_only_drops_its_own_clauses():
+    errors = []
+    reported = []
+
+    async def on_batch_complete(simplified, dropped):  # async callbacks are awaited
+        reported.append((sorted(s.id for s in simplified), dropped))
+
+    simplified, dropped = await simplify_clauses(
+        CLAUSES,
+        FailsBatchContaining("clause_2", RuntimeError("boom")),
+        batch_size=1,
+        on_batch_complete=on_batch_complete,
+        on_batch_error=errors.append,
+    )
+
+    assert [s.id for s in simplified] == ["clause_1"]
+    assert dropped == ["clause_2"]
+    assert sorted(reported) == [([], ["clause_2"]), (["clause_1"], [])]
+    assert [str(e) for e in errors] == ["boom"]
+
+
+@pytest.mark.asyncio
+async def test_results_the_model_was_unsure_about_are_not_cached(tmp_path):
+    from app.cache.store import CacheStore
+
+    class UnsureAboutClauseOne:
+        async def complete(self, prompt):
+            items = json.loads(prompt.split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+            return json.dumps(
+                {"results": [{"clause_id": c["clause_id"], "simplified": "ok", "self_check": c["clause_id"] == "clause_1"} for c in items]}
+            )
+
+    cache = CacheStore(tmp_path / "cache.sqlite3")
+    simplified, _ = await simplify_clauses(CLAUSES, UnsureAboutClauseOne(), cache=cache)
+
+    assert {s.id: s.self_check for s in simplified} == {"clause_1": True, "clause_2": False}
+    assert cache.get(CLAUSES[0].text) is None
+    assert cache.get(CLAUSES[1].text) is not None

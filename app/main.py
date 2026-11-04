@@ -1,9 +1,14 @@
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from app.routers import documents, results, translate
+
+# Uvicorn only sets up its own loggers; without this, app.* INFO logs go nowhere.
+# Logs carry job ids, counts and errors, never document text.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 app = FastAPI(title="Legal Document Simplifier")
 

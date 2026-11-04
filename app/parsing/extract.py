@@ -1,4 +1,5 @@
 import io
+import re
 
 import docx
 import fitz  # PyMuPDF
@@ -6,6 +7,7 @@ from docx.oxml.ns import qn
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
+from app.constants import MAX_PDF_PAGES
 from app.models.schemas import Clause
 from app.parsing.clause_splitter import split_clauses
 
@@ -19,26 +21,70 @@ class NoTextLayerError(ExtractionError):
 
 
 
+# Running headers and footers sit in the top/bottom margin of the page
+_MARGIN_FRACTION = 0.08
+# "3", "- 3 -", "Page 3", "Page 3 of 10", "3/10" (no trailing dot, so a lone "3." heading survives)
+_PAGE_NUMBER_RE = re.compile(r"^(?:page\s*)?[-–—]?\s*\d{1,4}\s*[-–—]?(?:\s*(?:of|/)\s*\d{1,4})?$", re.IGNORECASE)
+
+
+def _running_key(text: str) -> str:
+    """Page headers repeat with only the page number changing."""
+    return re.sub(r"\d+", "#", " ".join(text.split())).lower()
+
+
+def _in_margin(block, page_height: float) -> bool:
+    return block[3] <= page_height * _MARGIN_FRACTION or block[1] >= page_height * (1 - _MARGIN_FRACTION)
+
+
+def _remove_headers_and_footers(pages: list[tuple[list, float]]) -> list[list]:
+    """Drops margin blocks that are page numbers or that repeat on two or
+    more pages, so "Confidential - Page 3 of 12" isn't spliced into a clause.
+    """
+    margin_pages: dict[str, set[int]] = {}
+    for index, (blocks, height) in enumerate(pages):
+        for block in blocks:
+            if _in_margin(block, height):
+                margin_pages.setdefault(_running_key(block[4]), set()).add(index)
+
+    def is_running(block, height) -> bool:
+        if not _in_margin(block, height):
+            return False
+        text = " ".join(block[4].split())
+        return bool(_PAGE_NUMBER_RE.match(text)) or len(margin_pages[_running_key(text)]) >= 2
+
+    return [[b for b in blocks if not is_running(b, height)] for blocks, height in pages]
+
+
+def _reading_order(blocks: list, page_width: float) -> list:
+    """Columns are read one after the other only when the page really has
+    them: some right-half block sits beside a left-half block. Otherwise a
+    right-aligned date or signature line would be moved to the end of the page.
+    """
+    mid_x = page_width / 2
+    left = [b for b in blocks if b[0] < mid_x]
+    right = [b for b in blocks if b[0] >= mid_x]
+    side_by_side = any(r[1] < l[3] and l[1] < r[3] for r in right for l in left)
+    if side_by_side:
+        return sorted(blocks, key=lambda b: (0 if b[0] < mid_x else 1, round(b[1], 1)))
+    return sorted(blocks, key=lambda b: (round(b[1], 1), b[0]))
+
+
 def extract_pdf(content: bytes) -> str:
     try:
         doc = fitz.open(stream=content, filetype="pdf")
         try:
+            if doc.page_count > MAX_PDF_PAGES:
+                raise ExtractionError(
+                    f"The PDF has {doc.page_count} pages; the limit is {MAX_PDF_PAGES}. "
+                    "Split it into smaller files and upload them separately."
+                )
             pages = []
             for page in doc:
                 blocks = [
                     b for b in page.get_text("blocks")
                     if b[6] == 0 and b[4].strip()
                 ]
-                if not blocks:
-                    continue
-
-                mid_x = page.rect.width / 2
-
-                def column(block):
-                    return 0 if block[0] < mid_x else 1
-
-                blocks.sort(key=lambda b: (column(b), round(b[1], 1)))
-                pages.append("\n\n".join(b[4].strip() for b in blocks))
+                pages.append((blocks, page.rect.height, page.rect.width))
         finally:
             doc.close()
 
@@ -49,7 +95,12 @@ def extract_pdf(content: bytes) -> str:
             "Could not read the PDF. The file may be damaged or unsupported."
         ) from e
 
-    text = "\n\n".join(pages).strip()
+    cleaned = _remove_headers_and_footers([(blocks, height) for blocks, height, _ in pages])
+    page_texts = [
+        "\n\n".join(b[4].strip() for b in _reading_order(blocks, width))
+        for blocks, (_, _, width) in zip(cleaned, pages)
+    ]
+    text = "\n\n".join(t for t in page_texts if t).strip()
     if not text:
         raise NoTextLayerError(
             "PDF has no extractable text layer "

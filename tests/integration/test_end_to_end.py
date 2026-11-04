@@ -164,3 +164,90 @@ async def test_unexpected_error_fails_the_job_instead_of_leaving_it_processing(a
 
     assert result["status"] == JobStatus.FAILED.value
     assert "splitter bug" not in result["error"]  # internals aren't shown to the user
+
+
+class _RaisesForEveryBatch:
+    def __init__(self, error):
+        self.error = error
+
+    async def complete(self, prompt):
+        raise self.error
+
+
+def _groq_error(error_cls, status):
+    import httpx
+
+    request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+    return error_cls("secret request details", response=httpx.Response(status, request=request), body=None)
+
+
+@pytest.mark.asyncio
+async def test_invalid_api_key_fails_the_job_with_a_plain_explanation(async_client, with_fake_groq):
+    import groq
+
+    from app.jobs import pipeline as pipeline_module
+
+    pipeline_module.set_client(_RaisesForEveryBatch(_groq_error(groq.AuthenticationError, 401)))
+    upload = await async_client.post("/api/documents", data={"text": "1. Rent\nPay monthly.\n\n2. Term\nOne year."})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.FAILED.value
+    assert "GROQ_API_KEY" in result["error"]
+    assert "secret request details" not in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_one_failing_batch_does_not_fail_the_whole_document(async_client, with_fake_groq):
+    import json
+
+    from app.jobs import pipeline as pipeline_module
+
+    class FailsWhenClauseThreeIsAsked:
+        async def complete(self, prompt):
+            items = json.loads(prompt.split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+            if any(c["clause_id"] == "clause_7" for c in items):
+                raise RuntimeError("connection reset")
+            return json.dumps({"results": [{"clause_id": c["clause_id"], "simplified": "ok", "self_check": False} for c in items]})
+
+    pipeline_module.set_client(FailsWhenClauseThreeIsAsked())
+    # 8 clauses = two batches of 6 and 2; the second batch fails
+    text = "\n\n".join(f"{n}. Heading {n}\nBody text {n}." for n in range(1, 9))
+    upload = await async_client.post("/api/documents", data={"text": text})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.DONE.value
+    failed = {c["id"]: c["failed"] for c in result["completed"]}
+    assert failed == {f"clause_{n}": n >= 7 for n in range(1, 9)}
+
+
+@pytest.mark.asyncio
+async def test_glossary_failure_does_not_fail_the_job(async_client, with_fake_groq):
+    from app.jobs import pipeline as pipeline_module
+
+    class BrokenGlossary:
+        def search(self, text):
+            raise OSError("model download failed")
+
+    pipeline_module.set_glossary_store(BrokenGlossary())
+    try:
+        upload = await async_client.post("/api/documents", data={"text": "1. Rent\nPay monthly."})
+        result = await _poll_until_done(async_client, upload.json()["job_id"])
+    finally:
+        pipeline_module.set_glossary_store(None)
+
+    assert result["status"] == JobStatus.DONE.value
+    assert result["completed"][0]["simplified"].startswith("SIMPLIFIED:")
+    assert result["completed"][0]["glossary_matches"] == []
+
+
+@pytest.mark.asyncio
+async def test_documents_over_the_clause_limit_are_rejected_before_any_llm_call(async_client, with_fake_groq, monkeypatch):
+    from app.jobs import pipeline as pipeline_module
+
+    monkeypatch.setattr(pipeline_module, "MAX_CLAUSES", 2)
+    upload = await async_client.post("/api/documents", data={"text": "1. A\nOne.\n\n2. B\nTwo.\n\n3. C\nThree."})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.FAILED.value
+    assert "limit is 2" in result["error"]
+    assert with_fake_groq.prompts == []

@@ -18,5 +18,7 @@ def embed_texts(texts: list[str]) -> np.ndarray:
     if not texts:
         dim = get_model().get_sentence_embedding_dimension()
         return np.empty((0, dim), dtype=np.float32)
-    embeddings = get_model().encode(texts, convert_to_numpy=True, normalize_embeddings=True)
+    embeddings = get_model().encode(
+        texts, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False
+    )
     return embeddings.astype(np.float32)

@@ -1,14 +1,20 @@
 import asyncio
+import inspect
 import json
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Protocol
 
-from app.constants import DROPPED_MAX_RETRIES, GROQ_BATCH_SIZE
+from app.config import settings
+from app.constants import DROPPED_MAX_RETRIES
 from app.llm.groq_client import batch_items
 from app.models.schemas import Clause, ReadabilityScore, SimplifiedClause
 from app.scoring.readability import readability_delta
 
-BatchCallback = Callable[[list[SimplifiedClause], list[str]], None]
+logger = logging.getLogger(__name__)
+
+BatchCallback = Callable[[list[SimplifiedClause], list[str]], Awaitable[None] | None]
+ErrorCallback = Callable[[Exception], None]
 VerifyFn = Callable[[list[SimplifiedClause], list[Clause]], Awaitable[list[SimplifiedClause]]]
 
 
@@ -123,10 +129,11 @@ def parse_batch_response(
 async def simplify_clauses(
     clauses: list[Clause],
     client: CompletesPrompts,
-    batch_size: int = GROQ_BATCH_SIZE,
+    batch_size: int | None = None,
     on_batch_complete: BatchCallback | None = None,
     cache: ClauseCache | None = None,
     verify_fn: VerifyFn | None = None,
+    on_batch_error: ErrorCallback | None = None,
 ) -> tuple[list[SimplifiedClause], list[str]]:
     """Batches clauses, sends each batch to `client`, and merges results.
     Concurrency across batches is bounded by the client's own semaphore.
@@ -142,6 +149,12 @@ async def simplify_clauses(
     caching/callback — e.g. `app.llm.verify`'s flag-then-retry-once rule. It
     is decoupled here via injection (rather than an import) so this module
     has no dependency on the verification policy.
+
+    A batch whose LLM call raises (after the client's own retries) does not
+    abort the other batches: its clauses are reported as dropped and the
+    exception is passed to `on_batch_error`. Results the model flagged as
+    unsure are not cached, so a later run gets a fresh attempt.
+    `on_batch_complete` may be sync or async.
     """
     to_process: list[Clause] = []
     cached_simplified: list[SimplifiedClause] = []
@@ -163,12 +176,19 @@ async def simplify_clauses(
         else:
             to_process.append(clause)
 
-    if cached_simplified and on_batch_complete is not None:
-        on_batch_complete(cached_simplified, [])
+    async def report(simplified: list[SimplifiedClause], dropped: list[str]) -> None:
+        if on_batch_complete is None:
+            return
+        result = on_batch_complete(simplified, dropped)
+        if inspect.isawaitable(result):
+            await result
 
-    batches = batch_items(to_process, batch_size)
+    if cached_simplified:
+        await report(cached_simplified, [])
 
-    async def process(batch: list[Clause]) -> tuple[list[SimplifiedClause], list[str]]:
+    batches = batch_items(to_process, batch_size or settings.groq_batch_size)
+
+    async def simplify_batch(batch: list[Clause]) -> tuple[list[SimplifiedClause], list[str]]:
         raw = await client.complete(build_prompt(batch))
         simplified, dropped = parse_batch_response(raw, batch)
         for _ in range(DROPPED_MAX_RETRIES):
@@ -179,12 +199,24 @@ async def simplify_clauses(
             simplified.extend(recovered)
         if verify_fn is not None:
             simplified = await verify_fn(simplified, batch)
+        return simplified, dropped
+
+    async def process(batch: list[Clause]) -> tuple[list[SimplifiedClause], list[str]]:
+        try:
+            simplified, dropped = await simplify_batch(batch)
+        except Exception as e:
+            logger.exception("Batch of %d clauses failed", len(batch))
+            if on_batch_error is not None:
+                on_batch_error(e)
+            simplified, dropped = [], [c.id for c in batch]
+        if dropped:
+            logger.warning("%d clause(s) not simplified: %s", len(dropped), ", ".join(dropped))
         if cache is not None:
             by_id = {c.id: c for c in batch}
             for s in simplified:
-                cache.put(cache_key(by_id[s.id]), s.simplified, s.self_check, s.heading)
-        if on_batch_complete is not None:
-            on_batch_complete(simplified, dropped)
+                if not s.self_check:
+                    cache.put(cache_key(by_id[s.id]), s.simplified, s.self_check, s.heading)
+        await report(simplified, dropped)
         return simplified, dropped
 
     results = await asyncio.gather(*(process(batch) for batch in batches))

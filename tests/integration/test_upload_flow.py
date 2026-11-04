@@ -73,3 +73,32 @@ async def test_scanned_pdf_upload_reaches_failed_status(async_client, with_fake_
 
     assert result["status"] == JobStatus.FAILED.value
     assert result["error"]
+
+
+@pytest.mark.asyncio
+async def test_oversized_upload_returns_413(async_client, with_fake_groq, monkeypatch):
+    from app.routers import documents
+
+    monkeypatch.setattr(documents, "MAX_UPLOAD_BYTES", 10)
+    response = await async_client.post(
+        "/api/documents", files={"file": ("big.txt", b"x" * 11, "text/plain")}
+    )
+    assert response.status_code == 413
+
+
+@pytest.mark.asyncio
+async def test_too_long_pasted_text_returns_413(async_client, with_fake_groq, monkeypatch):
+    from app.routers import documents
+
+    monkeypatch.setattr(documents, "MAX_PASTE_CHARS", 10)
+    response = await async_client.post("/api/documents", data={"text": "x" * 11})
+    assert response.status_code == 413
+
+
+@pytest.mark.asyncio
+async def test_unsupported_file_type_is_rejected_at_upload(async_client, with_fake_groq):
+    response = await async_client.post(
+        "/api/documents", files={"file": ("contract.doc", b"old word file", "application/msword")}
+    )
+    assert response.status_code == 400
+    assert "PDF, DOCX or TXT" in response.json()["detail"]

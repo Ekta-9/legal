@@ -90,3 +90,66 @@ def test_docx_bullets_are_not_numbered():
 
     text = extract("x.docx", _docx_bytes(build))
     assert text == "• Duties\n\n• More duties"
+
+
+def _pdf(pages: list[list[tuple[float, float, str]]]) -> bytes:
+    """Each page is a list of (x, y, line) placed at that position."""
+    import fitz
+
+    doc = fitz.open()
+    for lines in pages:
+        page = doc.new_page()
+        for x, y, line in lines:
+            page.insert_text((x, y), line, fontsize=11)
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
+def test_pdf_running_headers_footers_and_page_numbers_are_removed():
+    pages = [
+        [
+            (72, 30, "ACME Ltd - Confidential"),
+            (72, 100, "1. Rent"),
+            (72, 116, "The Tenant pays rent monthly."),
+            (280, 820, "Page 1 of 2"),
+        ],
+        [
+            (72, 30, "ACME Ltd - Confidential"),
+            (72, 100, "2. Term"),
+            (72, 116, "This lasts one year."),
+            (280, 820, "Page 2 of 2"),
+        ],
+    ]
+    text = extract("lease.pdf", _pdf(pages))
+
+    assert "Confidential" not in text
+    assert "Page" not in text
+    clauses = parse_document("lease.pdf", _pdf(pages))
+    assert [c.text for c in clauses] == [
+        "1. Rent\nThe Tenant pays rent monthly.",
+        "2. Term\nThis lasts one year.",
+    ]
+
+
+def test_pdf_right_aligned_line_stays_in_reading_order_on_a_single_column_page():
+    pages = [[
+        (72, 100, "1. Payment"),
+        (72, 116, "The fee is due on the first day of each month and is paid by bank transfer."),
+        (400, 150, "Dated: 1 March 2026"),
+        (72, 190, "2. Notice"),
+        (72, 206, "Notices must be given in writing to the address above."),
+    ]]
+    text = extract("contract.pdf", _pdf(pages))
+
+    assert text.index("Dated: 1 March 2026") < text.index("2. Notice")
+
+
+def test_pdf_over_the_page_limit_is_rejected(monkeypatch):
+    from app.parsing import extract as extract_module
+
+    monkeypatch.setattr(extract_module, "MAX_PDF_PAGES", 2)
+    pages = [[(72, 100, f"{n}. Clause {n}")] for n in range(1, 4)]
+
+    with pytest.raises(ExtractionError, match="limit is 2"):
+        extract("long.pdf", _pdf(pages))

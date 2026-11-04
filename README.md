@@ -14,7 +14,9 @@ Upload a legal contract and get each clause rewritten in plain English, shown be
 - **Readability score** (Flesch-Kincaid grade, before → after) and glossary terms per clause.
 - **Hindi / Marathi translation (experimental)** of the plain-English text with a local NLLB model. It is slow on CPU and has not been reviewed for legal accuracy.
 
-**Not supported:** scanned PDFs (no OCR), and headers, footers and footnotes in DOCX files. PDF page headers and footers can end up inside clauses. Very long documents have not been tested.
+**Not supported:** scanned PDFs (no OCR), and headers, footers and footnotes in DOCX files. PDF page numbers and repeated page headers and footers are removed, but a footnote or a one-off note in the page margin can still end up inside a clause.
+
+**Limits:** uploads up to 10 MB, pasted text up to 200,000 characters, PDFs up to 100 pages, and documents up to 300 clauses (see `app/constants.py`).
 
 ## Your data
 

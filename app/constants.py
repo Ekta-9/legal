@@ -1,20 +1,21 @@
-DISCLAIMER = (
-    "This is an automated summary, not legal advice. "
-    "Always verify against the original text before relying on it."
-)
-
-# Groq call strategy (see PLANNING.md §2)
-GROQ_BATCH_SIZE = 6  # clauses per batched call
-GROQ_CONCURRENCY = 4  # max in-flight batch requests
-GROQ_MAX_RETRIES = 5  # 429 backoff attempts
+# Groq call strategy (see PLANNING.md §2). Batch size and concurrency are
+# settings (GROQ_BATCH_SIZE / GROQ_CONCURRENCY in .env), see app/config.py.
+# The SDK's own retries are off so these are the only retries that happen.
+GROQ_MAX_RETRIES = 4  # attempts after the first, for rate limits, timeouts, connection and 5xx errors
 GROQ_BACKOFF_BASE_SECONDS = 1.0
+GROQ_MAX_BACKOFF_SECONDS = 30.0  # cap on any single wait, including Groq's retry-after
+GROQ_TIMEOUT_SECONDS = 60.0
 
-# Verification-failure behavior (see PLANNING.md §3)
-VERIFY_MAX_RETRIES = 1  # exactly one retry before showing the warning badge
+# Response handling (flagged clauses get one retry in app/llm/verify.py)
 DROPPED_MAX_RETRIES = 1  # re-ask once for clauses missing from the model's response, then report them as failed
 
 # Cache — the model name is added to the cache key automatically (see cache/store.py)
 CACHE_PROMPT_VERSION = "v3"  # bump to invalidate all cached results (v3: no-invented-pronouns rule)
 
-# Job store
-JOB_POLL_INTERVAL_HINT_SECONDS = 1.5  # suggested frontend polling interval
+# Input limits: keep one upload from exhausting memory or the Groq quota
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_PASTE_CHARS = 200_000
+MAX_PDF_PAGES = 100
+MAX_CLAUSES = 300
+MAX_TRANSLATE_CHARS = 5_000
+SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".txt")

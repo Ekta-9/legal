@@ -201,7 +201,7 @@ function fillRow(clause) {
     failedCount += 1;
     row.classList.add("is-missing");
     row.querySelector(".clause-plain .clause-text").textContent =
-      "Not simplified: the model did not return this clause, even after a retry. Read the original carefully.";
+      "Not simplified: no usable answer came back for this clause, even after retrying. Read the original carefully.";
     return;
   }
 
