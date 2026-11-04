@@ -15,45 +15,74 @@ class NoTextLayerError(ExtractionError):
     """Raised for PDFs with no extractable text layer (e.g. scanned pages)."""
 
 
+
 def extract_pdf(content: bytes) -> str:
-    doc = fitz.open(stream=content, filetype="pdf")
     try:
-        pages = []
-        for page in doc:
-            blocks = [b for b in page.get_text("blocks") if b[6] == 0 and b[4].strip()]
-            if not blocks:
-                continue
-            mid_x = page.rect.width / 2
+        doc = fitz.open(stream=content, filetype="pdf")
+        try:
+            pages = []
+            for page in doc:
+                blocks = [
+                    b for b in page.get_text("blocks")
+                    if b[6] == 0 and b[4].strip()
+                ]
+                if not blocks:
+                    continue
 
-            def column(block):
-                return 0 if block[0] < mid_x else 1
+                mid_x = page.rect.width / 2
 
-            blocks.sort(key=lambda b: (column(b), round(b[1], 1)))
-            pages.append("\n".join(b[4].strip() for b in blocks))
-    finally:
-        doc.close()
+                def column(block):
+                    return 0 if block[0] < mid_x else 1
+
+                blocks.sort(key=lambda b: (column(b), round(b[1], 1)))
+                pages.append("\n\n".join(b[4].strip() for b in blocks))
+        finally:
+            doc.close()
+
+    except ExtractionError:
+        raise
+    except Exception as e:
+        raise ExtractionError(
+            "Could not read the PDF. The file may be damaged or unsupported."
+        ) from e
 
     text = "\n\n".join(pages).strip()
     if not text:
         raise NoTextLayerError(
-            "PDF has no extractable text layer (likely a scanned document); OCR is out of scope for MVP"
+            "PDF has no extractable text layer "
+            "(likely a scanned document); OCR is out of scope for MVP"
         )
     return text
 
 
 def extract_docx(content: bytes) -> str:
-    document = docx.Document(io.BytesIO(content))
-    text = "\n".join(p.text for p in document.paragraphs).strip()
+    try:
+        document = docx.Document(io.BytesIO(content))
+        text = "\n".join(p.text for p in document.paragraphs).strip()
+    except ExtractionError:
+        raise
+    except Exception as e:
+        raise ExtractionError(
+            "Could not read the DOCX. The file may be damaged or unsupported."
+        ) from e
+
     if not text:
         raise ExtractionError("DOCX has no extractable text")
     return text
 
 
 def extract_text(content: bytes) -> str:
-    text = content.decode("utf-8").strip()
+    try:
+        text = content.decode("utf-8").strip()
+    except UnicodeDecodeError as e:
+        raise ExtractionError(
+            "Could not read the text file. Please use UTF-8 encoding."
+        ) from e
+
     if not text:
         raise ExtractionError("text file is empty")
     return text
+
 
 
 def extract(filename: str, content: bytes) -> str:
