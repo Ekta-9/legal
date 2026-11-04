@@ -105,3 +105,13 @@ def test_preamble_clause_does_not_get_its_own_parties_back():
     assert clauses["clause_1"].heading == "Preamble"
     assert clauses["clause_1"].context is None or clauses["clause_1"].context.parties == []
     assert clauses["clause_3"].context.parties == ["Provider: Acme Ltd, a company registered in Pune", "Client: John Doe"]
+
+
+def test_abbreviation_dots_in_party_names_are_not_sentence_breaks():
+    text = (
+        'This Agreement is made between Northwind Logistics Pvt. Ltd. (the "Supplier") '
+        'and Dr. A. Rao (the "Consultant").\n\n1. Fees\nThe Supplier pays the Consultant monthly.'
+    )
+    context = build_document_context(text, split_clauses(text))
+
+    assert context.parties == ["Supplier: Northwind Logistics Pvt. Ltd.", "Consultant: Dr. A. Rao"]

@@ -9,7 +9,7 @@ Upload a legal contract and get each clause rewritten in plain English, shown be
 - **Upload or paste** a contract: PDF (with a text layer), DOCX or TXT.
 - **Clause splitting** that follows the document's own numbering (`1.`, `1.1`, `SECTION 2`, `ARTICLE IV`), keeps the preamble that names the parties, and falls back to ALL-CAPS headings or paragraphs for unnumbered documents. In DOCX files it reads Word's automatic numbering and tables.
 - **Document context (RAG)**: each clause is sent to the model with the parties, the definitions of terms it uses, and the sections it refers to, all retrieved from the same contract.
-- **Plain-English rewrite** of every clause via Groq (`openai/gpt-oss-120b` by default). The model also reports when it is unsure, and those clauses are marked "model unsure" (the model's own judgement, not an independent check).
+- **Plain-English rewrite** of every clause via Groq (`openai/gpt-oss-20b` by default; set `GROQ_MODEL=openai/gpt-oss-120b` for the larger model, which kept meaning better on hard clauses in `tests/eval` but has much lower free-tier rate limits). The model also reports when it is unsure, and those clauses are marked "model unsure" (the model's own judgement, not an independent check).
 - **Numbers check**: every amount, date, deadline and section number in the original must also appear in the plain version. This is checked in code, not by the model. A clause that loses one is retried once, then marked with the missing numbers.
 - **Nothing silently disappears**: a clause the model fails to return is retried once, then shown as "not simplified" with its original text.
 - **Readability score** (Flesch-Kincaid grade, before → after) and glossary terms per clause.

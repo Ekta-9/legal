@@ -37,12 +37,21 @@ def _truncate(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
+# "between", or a sentence break that isn't the dot of a name abbreviation ("Pvt. Ltd.", "Mr.") or initial ("A. Rao")
+_SUBJECT_BREAK_RE = re.compile(
+    r"\bbetween\b|[;:]\s|"
+    + "".join(rf"(?<!\b{abbr})" for abbr in ("pvt", "ltd", "co", "inc", "corp", "mr", "mrs", "ms", "dr", "no", "st"))
+    + r"(?<!\b[a-z])\.\s",
+    re.IGNORECASE,
+)
+
+
 def _clean_subject(subject: str) -> str:
     """Trim the text before an inline definition down to the thing being
     defined: drop everything up to the last "between" or sentence break,
     and a leading "and" (the second party in "between A (...) and B (...)").
     """
-    subject = re.split(r"\bbetween\b|[.;:]\s", subject)[-1]
+    subject = _SUBJECT_BREAK_RE.split(subject)[-1]
     subject = re.sub(r"^\s*and\b", "", subject, flags=re.IGNORECASE)
     return _collapse(subject).strip(" ,")
 

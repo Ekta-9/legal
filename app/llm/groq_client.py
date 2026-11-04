@@ -10,6 +10,7 @@ from app.constants import (
     GROQ_BACKOFF_BASE_SECONDS,
     GROQ_MAX_BACKOFF_SECONDS,
     GROQ_MAX_COMPLETION_TOKENS,
+    GROQ_MAX_RATE_LIMIT_RETRIES,
     GROQ_MAX_RETRIES,
     GROQ_TEMPERATURE,
     GROQ_TIMEOUT_SECONDS,
@@ -69,6 +70,10 @@ class GroqClient:
     """Async wrapper around the Groq SDK: concurrency ceiling + exponential
     backoff on rate limits and transient failures. The underlying call is
     injectable (`call_fn`) so tests never need a real API key or network access.
+
+    Rate limits get their own, larger retry budget: a 429 means "wait", not
+    "failed", and on the free tier a few concurrent batches hit the
+    tokens-per-minute limit routinely.
     """
 
     def __init__(
@@ -78,24 +83,31 @@ class GroqClient:
         model: str | None = None,
         concurrency: int | None = None,
         max_retries: int = GROQ_MAX_RETRIES,
+        max_rate_limit_retries: int = GROQ_MAX_RATE_LIMIT_RETRIES,
         backoff_base: float = GROQ_BACKOFF_BASE_SECONDS,
         sleep_fn: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ):
         self._call_fn = call_fn or _default_call_fn(api_key, model)
         self._semaphore = asyncio.Semaphore(concurrency or settings.groq_concurrency)
         self._max_retries = max_retries
+        self._max_rate_limit_retries = max_rate_limit_retries
         self._backoff_base = backoff_base
         self._sleep_fn = sleep_fn
 
     async def complete(self, prompt: str) -> str:
         async with self._semaphore:
-            attempt = 0
+            failures = rate_limits = 0
             while True:
                 try:
                     return await self._call_fn(prompt)
                 except RETRYABLE_ERRORS as e:
-                    attempt += 1
-                    if attempt > self._max_retries:
+                    if isinstance(e, RateLimitError):
+                        rate_limits += 1
+                        attempt, limit = rate_limits, self._max_rate_limit_retries
+                    else:
+                        failures += 1
+                        attempt, limit = failures, self._max_retries
+                    if attempt > limit:
                         raise
                     delay = self._backoff_base * (2 ** (attempt - 1))
                     if isinstance(e, RateLimitError):
@@ -103,6 +115,6 @@ class GroqClient:
                     delay = min(delay, GROQ_MAX_BACKOFF_SECONDS)
                     logger.warning(
                         "Groq call failed (%s), retry %d/%d in %.1fs",
-                        type(e).__name__, attempt, self._max_retries, delay,
+                        type(e).__name__, attempt, limit, delay,
                     )
                     await self._sleep_fn(delay)

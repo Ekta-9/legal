@@ -73,7 +73,7 @@ async def test_429_exhausts_retries_and_raises():
     async def fake_sleep(delay: float) -> None:
         return None
 
-    client = GroqClient(call_fn=call_fn, max_retries=2, backoff_base=0.01, sleep_fn=fake_sleep)
+    client = GroqClient(call_fn=call_fn, max_rate_limit_retries=2, backoff_base=0.01, sleep_fn=fake_sleep)
 
     with pytest.raises(RateLimitError):
         await client.complete("prompt")
@@ -160,3 +160,24 @@ def test_sdk_retries_are_disabled_so_they_do_not_multiply_with_ours():
     finally:
         groq_client.AsyncGroq = original
     assert captured["max_retries"] == 0
+
+
+@pytest.mark.asyncio
+async def test_rate_limits_have_a_larger_budget_than_other_failures():
+    from app.constants import GROQ_MAX_RATE_LIMIT_RETRIES, GROQ_MAX_RETRIES
+
+    remaining = GROQ_MAX_RETRIES + 2  # more 429s than the ordinary retry budget allows
+
+    async def call_fn(prompt: str) -> str:
+        nonlocal remaining
+        if remaining:
+            remaining -= 1
+            raise _rate_limit_error()
+        return "ok"
+
+    async def fake_sleep(delay: float) -> None:
+        return None
+
+    assert GROQ_MAX_RATE_LIMIT_RETRIES > GROQ_MAX_RETRIES + 2
+    client = GroqClient(call_fn=call_fn, sleep_fn=fake_sleep)
+    assert await client.complete("prompt") == "ok"

@@ -1,35 +1,730 @@
 {
-  "_comment": "Hand-written evaluation contracts. For each clause heading, must_mention lists concepts the plain version must keep; each concept is a list of acceptable words (any one counts, case-insensitive). Numbers are checked separately by app/llm/facts.py.",
+  "_comment": "Hand-written evaluation contracts. For each clause heading, must_mention lists concepts the plain version must keep; each concept is a list of acceptable words (any one counts, case-insensitive). Numbers are checked separately by app/llm/facts.py. expect_unsure lists clauses that are genuinely ambiguous, where the right behaviour is self_check=true.",
   "documents": [
     {
       "name": "rental_agreement",
       "text": "This Leave and Licence Agreement is made on 1 April 2026 between Ravi Kumar, residing at 14 MG Road, Pune (hereinafter the \"Licensor\"), and Priya Shah, residing at 7 FC Road, Pune (hereinafter the \"Licensee\").\n\n1. Definitions\n\"Premises\" means the flat bearing No. 302, Sunrise Apartments, Baner, Pune.\n\"Licence Fee\" means the monthly sum payable under Clause 3.\n\n2. Term\nThis licence shall be for a period of 11 (eleven) months commencing from 1 April 2026, unless terminated earlier in accordance with Clause 8.\n\n3. Licence Fee\nThe Licensee shall pay the Licensor a Licence Fee of Rs. 25,000/- per month on or before the 5th day of each calendar month by bank transfer.\n\n4. Late Payment\nIf the Licence Fee is not received within 7 days of its due date, the Licensee shall pay interest at the rate of 2% per month on the outstanding amount, without prejudice to any other remedy of the Licensor.\n\n5. Security Deposit\nThe Licensee has paid an interest-free refundable security deposit of Rs. 75,000/-, which shall be refunded within 30 days of the Licensee vacating the Premises, after deducting any unpaid dues or the cost of repairing damage beyond normal wear and tear.\n\n6. Maintenance\nThe Licensee shall bear the cost of electricity and minor repairs not exceeding Rs. 2,000/- per instance. Structural repairs and society maintenance charges shall be borne by the Licensor.\n\n7. Use of Premises\nThe Licensee shall use the Premises solely for residential purposes and shall not sub-let, assign or part with possession of the Premises or any part thereof without the prior written consent of the Licensor.\n\n8. Termination\nEither party may terminate this licence by giving 1 (one) month's prior written notice to the other party. The Licensor may terminate this licence forthwith if the Licence Fee remains unpaid for 2 consecutive months.\n\n9. Indemnity\nThe Licensee shall indemnify the Licensor against any loss or damage caused to the Premises by the negligence of the Licensee or the Licensee's guests, save and except damage caused by fire, flood or other events beyond the Licensee's reasonable control.\n\n10. Governing Law\nThis Agreement shall be governed by the laws of India and the courts at Pune shall have exclusive jurisdiction.",
       "expect": {
-        "Preamble": [["Ravi"], ["Priya"]],
-        "1. Definitions": [["flat", "apartment", "premises"], ["Baner", "Sunrise"], ["month"]],
-        "2. Term": [["11", "eleven"], ["unless", "earlier", "before"]],
-        "3. Licence Fee": [["25,000", "25000"], ["5th", "fifth", "5"], ["bank"]],
-        "4. Late Payment": [["interest"], ["2%", "2 %", "two percent"], ["7", "seven"]],
-        "5. Security Deposit": [["75,000", "75000"], ["30", "thirty"], ["damage", "repair"], ["wear and tear", "wear"], ["unpaid", "dues", "owe"]],
-        "6. Maintenance": [["electricity"], ["2,000", "2000"], ["structural"], ["society"]],
-        "7. Use of Premises": [["residential", "residence", "live", "living", "home"], ["sub-let", "sublet", "rent out", "sub-lease"], ["written"], ["consent", "permission", "approval"]],
-        "8. Termination": [["notice"], ["written", "writing"], ["2", "two"], ["unpaid", "not paid", "doesn't pay", "does not pay", "fails to pay"]],
-        "9. Indemnity": [["negligence", "careless"], ["guest"], ["fire"], ["flood"], ["except", "not responsible", "not liable", "doesn't cover", "does not cover", "unless", "isn't responsible", "is not responsible"]],
-        "10. Governing Law": [["India"], ["Pune"], ["court"]]
+        "Preamble": [
+          [
+            "Ravi"
+          ],
+          [
+            "Priya"
+          ]
+        ],
+        "1. Definitions": [
+          [
+            "flat",
+            "apartment",
+            "premises"
+          ],
+          [
+            "Baner",
+            "Sunrise"
+          ],
+          [
+            "month"
+          ]
+        ],
+        "2. Term": [
+          [
+            "11",
+            "eleven"
+          ],
+          [
+            "unless",
+            "earlier",
+            "before",
+            "sooner"
+          ]
+        ],
+        "3. Licence Fee": [
+          [
+            "25,000",
+            "25000"
+          ],
+          [
+            "5th",
+            "fifth",
+            "5"
+          ],
+          [
+            "bank"
+          ]
+        ],
+        "4. Late Payment": [
+          [
+            "interest"
+          ],
+          [
+            "2%",
+            "2 %",
+            "two percent"
+          ],
+          [
+            "7",
+            "seven"
+          ]
+        ],
+        "5. Security Deposit": [
+          [
+            "75,000",
+            "75000"
+          ],
+          [
+            "30",
+            "thirty"
+          ],
+          [
+            "damage",
+            "repair"
+          ],
+          [
+            "wear and tear",
+            "wear"
+          ],
+          [
+            "unpaid",
+            "dues",
+            "owe"
+          ]
+        ],
+        "6. Maintenance": [
+          [
+            "electricity"
+          ],
+          [
+            "2,000",
+            "2000"
+          ],
+          [
+            "structural"
+          ],
+          [
+            "society"
+          ]
+        ],
+        "7. Use of Premises": [
+          [
+            "residential",
+            "residence",
+            "live",
+            "living",
+            "home"
+          ],
+          [
+            "sub-let",
+            "sublet",
+            "rent out",
+            "sub-lease"
+          ],
+          [
+            "written"
+          ],
+          [
+            "consent",
+            "permission",
+            "approval"
+          ]
+        ],
+        "8. Termination": [
+          [
+            "notice"
+          ],
+          [
+            "written",
+            "writing"
+          ],
+          [
+            "2",
+            "two"
+          ],
+          [
+            "unpaid",
+            "not paid",
+            "doesn't pay",
+            "does not pay",
+            "fails to pay"
+          ]
+        ],
+        "9. Indemnity": [
+          [
+            "negligence",
+            "careless"
+          ],
+          [
+            "guest"
+          ],
+          [
+            "fire"
+          ],
+          [
+            "flood"
+          ],
+          [
+            "except",
+            "not responsible",
+            "not liable",
+            "doesn't cover",
+            "does not cover",
+            "unless",
+            "isn't responsible",
+            "is not responsible"
+          ]
+        ],
+        "10. Governing Law": [
+          [
+            "India"
+          ],
+          [
+            "Pune"
+          ],
+          [
+            "court"
+          ]
+        ]
       }
     },
     {
       "name": "employment_agreement",
       "text": "1. Appointment\nThe Company hereby appoints the Employee as Senior Analyst with effect from 1 June 2026, subject to satisfactory verification of the Employee's educational certificates and previous employment records.\n\n2. Probation\nThe Employee shall be on probation for a period of 6 (six) months, which may be extended by up to 3 (three) months at the sole discretion of the Company. During probation, either party may terminate employment by giving 15 days' written notice.\n\n3. Remuneration\nThe Employee shall be paid a gross annual salary of Rs. 12,00,000/-, payable in equal monthly instalments, subject to deduction of applicable taxes at source.\n\n4. Leave\nThe Employee shall be entitled to 18 days of paid leave per calendar year. Unused leave of up to 10 days may be carried forward to the next year; any balance in excess thereof shall lapse.\n\n5. Confidentiality\nThe Employee shall not, during employment or at any time thereafter, disclose any Confidential Information of the Company to any third party, except as required by law or with the prior written consent of the Company.\n\n6. Non-Solicitation\nFor a period of 12 months after the termination of employment, the Employee shall not directly or indirectly solicit any client or employee of the Company.\n\n7. Termination\nAfter confirmation, either party may terminate employment by giving 60 days' written notice or payment of salary in lieu thereof. The Company may terminate employment without notice in the event of gross misconduct.",
       "expect": {
-        "1. Appointment": [["Senior Analyst"], ["verif", "check"], ["certificate"]],
-        "2. Probation": [["probation", "trial"], ["6", "six"], ["3", "three"], ["15", "fifteen"], ["extend"]],
-        "3. Remuneration": [["12,00,000", "1200000", "12 lakh", "1,200,000"], ["tax"], ["month"]],
-        "4. Leave": [["18", "eighteen"], ["10", "ten"], ["carr", "roll"], ["lapse", "lose", "lost", "expire", "forfeit"]],
-        "5. Confidentiality": [["confidential", "secret"], ["law", "legal"], ["consent", "permission", "approval"], ["after", "thereafter", "even when", "even after", "any time"]],
-        "6. Non-Solicitation": [["12", "twelve", "one year", "1 year"], ["client"], ["employee", "staff", "worker"]],
-        "7. Termination": [["60", "sixty"], ["notice"], ["salary", "pay"], ["misconduct"], ["without notice", "immediately", "no notice"]]
+        "1. Appointment": [
+          [
+            "Senior Analyst"
+          ],
+          [
+            "verif",
+            "check"
+          ],
+          [
+            "certificate"
+          ]
+        ],
+        "2. Probation": [
+          [
+            "probation",
+            "trial"
+          ],
+          [
+            "6",
+            "six"
+          ],
+          [
+            "3",
+            "three"
+          ],
+          [
+            "15",
+            "fifteen"
+          ],
+          [
+            "extend"
+          ]
+        ],
+        "3. Remuneration": [
+          [
+            "12,00,000",
+            "1200000",
+            "12 lakh",
+            "1,200,000"
+          ],
+          [
+            "tax"
+          ],
+          [
+            "month"
+          ]
+        ],
+        "4. Leave": [
+          [
+            "18",
+            "eighteen"
+          ],
+          [
+            "10",
+            "ten"
+          ],
+          [
+            "carr",
+            "roll"
+          ],
+          [
+            "lapse",
+            "lose",
+            "lost",
+            "expire",
+            "forfeit"
+          ]
+        ],
+        "5. Confidentiality": [
+          [
+            "confidential",
+            "secret"
+          ],
+          [
+            "law",
+            "legal"
+          ],
+          [
+            "consent",
+            "permission",
+            "approval"
+          ],
+          [
+            "after",
+            "thereafter",
+            "even when",
+            "even after",
+            "any time"
+          ]
+        ],
+        "6. Non-Solicitation": [
+          [
+            "12",
+            "twelve",
+            "one year",
+            "1 year"
+          ],
+          [
+            "client"
+          ],
+          [
+            "employee",
+            "staff",
+            "worker"
+          ]
+        ],
+        "7. Termination": [
+          [
+            "60",
+            "sixty"
+          ],
+          [
+            "notice"
+          ],
+          [
+            "salary",
+            "pay"
+          ],
+          [
+            "misconduct"
+          ],
+          [
+            "without notice",
+            "immediately",
+            "no notice"
+          ]
+        ]
       }
+    },
+    {
+      "name": "services_agreement_hard",
+      "text": "This Logistics Services Agreement is made between Northwind Logistics Pvt. Ltd. (the \"Supplier\") and Kaveri Foods Ltd. (the \"Customer\").\n\n1. Definitions\n\"Business Day\" means any day other than a Saturday, Sunday or a public holiday in Mumbai.\n\"Losses\" means losses, damages, costs and expenses, including reasonable legal fees, but excluding indirect or consequential loss.\n\n2. Payment\nThe Customer shall pay each undisputed invoice within 45 days of receipt. The Customer may withhold payment of any disputed portion of an invoice, provided that it notifies the Supplier in writing of the dispute, with reasons, within 10 Business Days of receiving the invoice; failing such notice, the invoice shall be deemed accepted.\n\n3. Limitation of Liability\nNotwithstanding anything to the contrary in this Agreement, neither party's aggregate liability under this Agreement shall exceed the total fees paid in the 12 months preceding the claim; provided, however, that this limitation shall not apply to (a) a party's indemnity obligations under Clause 7, (b) breach of Clause 8, or (c) fraud or wilful misconduct.\n\n4. Exclusion of Indirect Loss\nExcept in the case of fraud, neither party shall be liable for any loss of profit, loss of business or any indirect or consequential loss, whether arising in contract, tort (including negligence) or otherwise, even if advised of the possibility of such loss.\n\n5. Service Level\nThe Supplier shall deliver at least 98% of consignments within 48 hours of collection. If the Supplier fails to meet this service level in any calendar month, other than as a result of a Force Majeure Event or a failure by the Customer to provide accurate dispatch information, the Supplier shall pay Service Credits under Clause 6.\n\n6. Service Credits\nService Credits shall be 2% of the monthly fees for each full percentage point by which performance falls below 98%, subject to a maximum of 20% of the monthly fees. Service Credits shall be the Customer's sole and exclusive remedy for failure to meet the service level, save where the failure continues for 3 consecutive months, in which case the Customer may terminate this Agreement under Clause 9.\n\n7. Indemnity\nThe Supplier shall indemnify the Customer against all Losses arising from any third-party claim that the Services infringe any intellectual property right, save to the extent that the claim arises from the Supplier's compliance with the Customer's specifications or from any modification made by the Customer.\n\n8. Confidentiality\nEach party shall keep confidential all information received from the other party, except information which (a) is or becomes public other than through breach of this Agreement, (b) was lawfully known to the receiving party before disclosure, or (c) is required to be disclosed by law, in which case the receiving party shall, where legally permitted, give the other party prompt notice.\n\n9. Termination\nEither party may terminate this Agreement with immediate effect by written notice if the other party commits a material breach which, if capable of remedy, is not remedied within 30 days of written notice requiring it to be remedied. Termination shall not affect any rights or liabilities that have accrued before termination.\n\n10. Assignment\nNeither party may assign this Agreement without the prior written consent of the other party, such consent not to be unreasonably withheld, except that the Supplier may assign this Agreement to an Affiliate without consent.\n\n11. Price Review\nThe Supplier may increase the fees once in each contract year by giving not less than 60 days' notice, provided that the increase shall not exceed the lower of 5% and the percentage increase in CPI over the preceding 12 months.\n\n12. Delivery Costs\nThe Customer shall reimburse the Supplier for fuel surcharges and tolls incurred on delivery routes outside Mumbai and Pune exceeding 50 kilometres.",
+      "expect": {
+        "Preamble": [
+          [
+            "Northwind"
+          ],
+          [
+            "Kaveri"
+          ]
+        ],
+        "1. Definitions": [
+          [
+            "Saturday"
+          ],
+          [
+            "Sunday"
+          ],
+          [
+            "holiday"
+          ],
+          [
+            "legal fees",
+            "lawyer",
+            "legal cost"
+          ],
+          [
+            "indirect",
+            "consequential"
+          ]
+        ],
+        "2. Payment": [
+          [
+            "undisputed",
+            "not disputed",
+            "doesn't dispute",
+            "does not dispute",
+            "not in dispute"
+          ],
+          [
+            "45"
+          ],
+          [
+            "withhold",
+            "hold back",
+            "not pay",
+            "doesn't have to pay",
+            "does not have to pay",
+            "can hold",
+            "delay"
+          ],
+          [
+            "writing",
+            "written"
+          ],
+          [
+            "reason",
+            "explain"
+          ],
+          [
+            "10"
+          ],
+          [
+            "business day",
+            "working day"
+          ],
+          [
+            "deemed",
+            "accepted",
+            "treated as",
+            "considered"
+          ]
+        ],
+        "3. Limitation of Liability": [
+          [
+            "fees"
+          ],
+          [
+            "12"
+          ],
+          [
+            "notwithstanding",
+            "regardless",
+            "even if",
+            "despite",
+            "overrides",
+            "whatever else",
+            "no matter",
+            "anything else"
+          ],
+          [
+            "indemn"
+          ],
+          [
+            "confidential",
+            "clause 8"
+          ],
+          [
+            "fraud"
+          ],
+          [
+            "wilful",
+            "willful",
+            "deliberate",
+            "intentional"
+          ],
+          [
+            "not apply",
+            "except",
+            "exclud",
+            "other than",
+            "no limit",
+            "no cap",
+            "not limited",
+            "not capped",
+            "unlimited",
+            "doesn't apply",
+            "does not apply"
+          ]
+        ],
+        "4. Exclusion of Indirect Loss": [
+          [
+            "fraud"
+          ],
+          [
+            "profit"
+          ],
+          [
+            "indirect"
+          ],
+          [
+            "negligen",
+            "careless"
+          ],
+          [
+            "even if",
+            "even when",
+            "even though",
+            "knew",
+            "warned",
+            "told",
+            "aware"
+          ]
+        ],
+        "5. Service Level": [
+          [
+            "98"
+          ],
+          [
+            "48"
+          ],
+          [
+            "month"
+          ],
+          [
+            "force majeure",
+            "beyond",
+            "outside",
+            "control"
+          ],
+          [
+            "dispatch",
+            "information",
+            "details"
+          ],
+          [
+            "credit"
+          ]
+        ],
+        "6. Service Credits": [
+          [
+            "2%",
+            "2 %",
+            "2 percent",
+            "2 per cent"
+          ],
+          [
+            "each",
+            "every",
+            "per "
+          ],
+          [
+            "20"
+          ],
+          [
+            "maximum",
+            "cap",
+            "no more than",
+            "up to",
+            "at most",
+            "not exceed",
+            "max"
+          ],
+          [
+            "sole",
+            "only"
+          ],
+          [
+            "3",
+            "three"
+          ],
+          [
+            "terminate",
+            "end the",
+            "cancel"
+          ]
+        ],
+        "7. Indemnity": [
+          [
+            "third"
+          ],
+          [
+            "intellectual property",
+            "ip ",
+            "copyright",
+            "patent"
+          ],
+          [
+            "specification",
+            "instruction"
+          ],
+          [
+            "modif",
+            "change",
+            "alter"
+          ],
+          [
+            "except",
+            "unless",
+            "does not cover",
+            "doesn't cover",
+            "not responsible",
+            "not have to",
+            "won't",
+            "will not",
+            "not liable",
+            "exclud",
+            "not if",
+            "other than"
+          ]
+        ],
+        "8. Confidentiality": [
+          [
+            "public"
+          ],
+          [
+            "breach",
+            "breaking",
+            "violat"
+          ],
+          [
+            "already",
+            "before",
+            "previously",
+            "prior"
+          ],
+          [
+            "law",
+            "legal",
+            "court"
+          ],
+          [
+            "notice",
+            "notify",
+            "tell",
+            "inform"
+          ],
+          [
+            "where legally permitted",
+            "if allowed",
+            "if legally allowed",
+            "if the law allows",
+            "where allowed",
+            "if permitted",
+            "where permitted",
+            "legally permitted",
+            "allowed by law",
+            "law permits",
+            "lawful"
+          ]
+        ],
+        "9. Termination": [
+          [
+            "material",
+            "serious",
+            "major",
+            "significant"
+          ],
+          [
+            "30"
+          ],
+          [
+            "fix",
+            "remed",
+            "cure",
+            "correct"
+          ],
+          [
+            "if it can be",
+            "if capable",
+            "fixable",
+            "can be fixed",
+            "can't be fixed",
+            "cannot be fixed",
+            "if possible",
+            "if the breach can",
+            "can be cured",
+            "could be cured",
+            "can be remedied",
+            "could be remedied",
+            "cannot be remedied",
+            "can't be remedied",
+            "remedyable",
+            "remediable",
+            "curable"
+          ],
+          [
+            "immediate",
+            "right away",
+            "at once",
+            "straight away"
+          ],
+          [
+            "accrued",
+            "already",
+            "before",
+            "existing",
+            "earned",
+            "up to"
+          ]
+        ],
+        "10. Assignment": [
+          [
+            "assign",
+            "transfer"
+          ],
+          [
+            "written",
+            "writing"
+          ],
+          [
+            "consent",
+            "permission",
+            "approval",
+            "agree"
+          ],
+          [
+            "unreasonabl",
+            "reasonable",
+            "without good reason",
+            "without a good reason"
+          ],
+          [
+            "affiliate",
+            "group compan",
+            "related compan",
+            "sister compan"
+          ]
+        ],
+        "11. Price Review": [
+          [
+            "once"
+          ],
+          [
+            "year"
+          ],
+          [
+            "60"
+          ],
+          [
+            "5%",
+            "5 %",
+            "5 percent",
+            "5 per cent"
+          ],
+          [
+            "cpi",
+            "inflation",
+            "consumer price"
+          ],
+          [
+            "lower",
+            "smaller",
+            "less",
+            "whichever"
+          ]
+        ],
+        "12. Delivery Costs": [
+          [
+            "fuel"
+          ],
+          [
+            "toll"
+          ],
+          [
+            "50"
+          ],
+          [
+            "outside"
+          ]
+        ]
+      },
+      "expect_unsure": [
+        "12. Delivery Costs"
+      ]
     }
   ]
 }
