@@ -64,6 +64,7 @@ class Score:
     sections: Counts = field(default_factory=Counts)
     parties_correct: int = 0
     parties_total: int = 0
+    parties_wrong: int = 0
     problems: list[str] = field(default_factory=list)
 
 
@@ -80,6 +81,11 @@ def score_document(document: dict, score: Score) -> None:
         else:
             score.problems.append(f"[{name}] party {role} = {entity!r} not extracted; got {index.parties}")
 
+    for term in document.get("not_parties", []):
+        if any(p.startswith(f"{term}: ") for p in index.parties):
+            score.parties_wrong += 1
+            score.problems.append(f"[{name}] {term!r} listed as a party")
+
     labels = [clause_label(c.heading) for c in clauses]
     unknown = set(document["clauses"]) - set(labels)
     if unknown:
@@ -90,7 +96,11 @@ def score_document(document: dict, score: Score) -> None:
         context = clause.context
         found_definitions = set(context.definitions) if context else set()
         found_sections = set(context.referenced_sections) if context else set()
-        score.definitions.add(found_definitions, set(expected["definitions"]))
+        # a defined term that reaches the clause as a party entry still reaches the model
+        delivered_as_party = {p.split(": ", 1)[0] for p in context.parties} if context else set()
+        wanted_definitions = set(expected["definitions"])
+        found_definitions |= delivered_as_party & wanted_definitions
+        score.definitions.add(found_definitions, wanted_definitions)
         score.sections.add(found_sections, set(expected["sections"]))
 
         for kind, found, wanted in (
@@ -116,7 +126,7 @@ def _row(name: str, score: Score) -> str:
     return (
         f"{name:9s}  definitions P {d.precision:4.0%} R {d.recall:4.0%} ({d.correct}/{d.correct + d.missed}, {d.wrong} wrong)"
         f"   sections P {s.precision:4.0%} R {s.recall:4.0%} ({s.correct}/{s.correct + s.missed}, {s.wrong} wrong)"
-        f"   parties {score.parties_correct}/{score.parties_total}"
+        f"   parties {score.parties_correct}/{score.parties_total} ({score.parties_wrong} wrong)"
     )
 
 
@@ -125,7 +135,7 @@ def main() -> None:
     parser.add_argument("--details", action="store_true", help="list every miss and wrong retrieval")
     args = parser.parse_args()
 
-    for split in ("eval", "dev", "heldout", None):
+    for split in ("eval", "dev", "heldout", "cuad", None):
         score = score_split(split)
         print(_row(split or "all", score))
         if args.details and split is not None:

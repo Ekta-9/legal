@@ -12,6 +12,7 @@ Scores are coarse checks, not a judgement of legal accuracy:
   numbers    clauses where every number from the original survived
   concepts   required concepts (eval_set.json "expect") found in the plain version
   unsure     clauses the model flagged with self_check
+  context    concepts that need the retrieved context (eval_set.json "expect_context"): definitions, party names
   ambiguous  of the clauses marked expect_unsure (genuinely ambiguous), how many were flagged
   grade      mean Flesch-Kincaid grade, original -> plain (lower is easier)
 """
@@ -55,6 +56,7 @@ async def evaluate(model: str, documents: list[dict], run: int = 1) -> dict:
         for clause in clauses:
             result = by_id.get(clause.id)
             concepts = document["expect"].get(clause.heading, [])
+            context_concepts = document.get("expect_context", {}).get(clause.heading, [])
             rows.append(
                 {
                     "document": document["name"],
@@ -64,6 +66,8 @@ async def evaluate(model: str, documents: list[dict], run: int = 1) -> dict:
                     "missing_numbers": result.missing_numbers if result else [],
                     "concepts_total": len(concepts),
                     "concept_misses": concept_misses(result.simplified, concepts) if result else [" / ".join(c) for c in concepts],
+                    "context_total": len(context_concepts),
+                    "context_misses": concept_misses(result.simplified if result else "", context_concepts),
                     "self_check": bool(result and result.self_check),
                     "expect_unsure": clause.heading in document.get("expect_unsure", []),
                     "grade_before": result.readability.original_grade if result and result.readability else None,
@@ -86,6 +90,7 @@ def summarize(run: dict) -> dict:
         "returned": f"{len(returned)}/{len(rows)}",
         "numbers": f"{sum(1 for r in returned if not r['missing_numbers'])}/{len(rows)}",
         "concepts": f"{concepts_total - concepts_missed}/{concepts_total}",
+        "context": f"{sum(r['context_total'] - len(r['context_misses']) for r in rows)}/{sum(r['context_total'] for r in rows)}",
         "unsure": str(sum(1 for r in rows if r["self_check"])),
         "ambiguous": f"{sum(1 for r in ambiguous if r['self_check'])}/{len(ambiguous)}",
         "grade": (
@@ -116,14 +121,17 @@ def _table(rows: list[dict], columns: list[str]) -> None:
 def print_report(runs: list[dict]) -> None:
     _table(
         [summarize(run) for run in runs],
-        ["model", "run", "returned", "numbers", "concepts", "unsure", "ambiguous", "grade", "seconds"],
+        ["model", "run", "returned", "numbers", "concepts", "context", "unsure", "ambiguous", "grade", "seconds"],
     )
     print("\nConcepts kept, per document:")
     by_document = [_concepts_by_document(run) for run in runs]
     _table(by_document, list(by_document[0]))
 
     for run in runs:
-        problems = [r for r in run["rows"] if not r["returned"] or r["missing_numbers"] or r["concept_misses"]]
+        problems = [
+            r for r in run["rows"]
+            if not r["returned"] or r["missing_numbers"] or r["concept_misses"] or r["context_misses"]
+        ]
         print(f"\n{run['model']} (run {run['run']}): {len(problems)} clause(s) with problems")
         for r in problems:
             issues = []
@@ -133,6 +141,8 @@ def print_report(runs: list[dict]) -> None:
                 issues.append("numbers lost: " + ", ".join(r["missing_numbers"]))
             if r["concept_misses"]:
                 issues.append("concepts missing: " + "; ".join(r["concept_misses"]))
+            if r["context_misses"]:
+                issues.append("context not used: " + "; ".join(r["context_misses"]))
             print(f"  [{r['document']}] {r['heading']}: {' | '.join(issues)}")
             if r["simplified"]:
                 print(f"      -> {r['simplified']}")

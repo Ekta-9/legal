@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-written evaluation contracts. For each clause heading, must_mention lists concepts the plain version must keep; each concept is a list of acceptable words (any one counts, case-insensitive). Numbers are checked separately by app/llm/facts.py. expect_unsure lists clauses that are genuinely ambiguous, where the right behaviour is self_check=true.",
+  "_comment": "Hand-written evaluation contracts. For each clause heading, must_mention lists concepts the plain version must keep; each concept is a list of acceptable words (any one counts, case-insensitive). Numbers are checked separately by app/llm/facts.py. expect_unsure lists clauses that are genuinely ambiguous, where the right behaviour is self_check=true. expect_context lists concepts that can only come from elsewhere in the contract (definitions, party names), i.e. what document-context retrieval is for.",
   "documents": [
     {
       "name": "rental_agreement",
@@ -182,6 +182,40 @@
           ],
           [
             "court"
+          ]
+        ]
+      },
+      "expect_context": {
+        "3. Licence Fee": [
+          [
+            "Priya"
+          ],
+          [
+            "Ravi"
+          ]
+        ],
+        "7. Use of Premises": [
+          [
+            "flat",
+            "apartment",
+            "302",
+            "Sunrise"
+          ]
+        ],
+        "8. Termination": [
+          [
+            "Priya"
+          ],
+          [
+            "Ravi"
+          ]
+        ],
+        "9. Indemnity": [
+          [
+            "flat",
+            "apartment",
+            "302",
+            "Sunrise"
           ]
         ]
       }
@@ -724,7 +758,40 @@
       },
       "expect_unsure": [
         "12. Delivery Costs"
-      ]
+      ],
+      "expect_context": {
+        "2. Payment": [
+          [
+            "working day",
+            "weekday",
+            "weekend",
+            "Saturday",
+            "Sunday",
+            "holiday"
+          ]
+        ],
+        "3. Limitation of Liability": [
+          [
+            "confidential"
+          ]
+        ],
+        "7. Indemnity": [
+          [
+            "legal fee",
+            "legal cost",
+            "lawyer"
+          ],
+          [
+            "indirect",
+            "consequential"
+          ]
+        ],
+        "10. Assignment": [
+          [
+            "Northwind"
+          ]
+        ]
+      }
     }
   ]
 }

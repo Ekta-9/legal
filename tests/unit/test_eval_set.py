@@ -15,3 +15,10 @@ def test_every_clause_in_the_eval_set_has_expectations(document):
     """
     headings = [c.heading for c in split_clauses(document["text"])]
     assert headings == list(document["expect"])
+
+
+@pytest.mark.parametrize("document", EVAL_SET["documents"], ids=lambda d: d["name"])
+def test_context_and_ambiguity_expectations_name_real_clauses(document):
+    headings = {c.heading for c in split_clauses(document["text"])}
+    assert set(document.get("expect_context", {})) <= headings
+    assert set(document.get("expect_unsure", [])) <= headings
