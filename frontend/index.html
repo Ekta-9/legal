@@ -3,37 +3,107 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Legal Document Simplifier</title>
+  <title>Legal Simplifier</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@900&family=Space+Mono:wght@400;700&display=swap" />
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600&display=swap" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <header>
-    <h1>Legal Document Simplifier</h1>
-    <p class="disclaimer">This is an automated summary, not legal advice. Always verify against the original text before relying on it.</p>
+  <header class="topbar">
+    <a class="brand" href="/">Legal<span>_</span>Simplifier</a>
+    <p class="topbar-note">[ Not legal advice<span class="long"> &mdash; always verify against the original</span> ]</p>
   </header>
 
   <main>
-    <form id="upload-form">
-      <div class="field">
-        <label for="file-input">Upload a PDF, DOCX, or .txt file</label>
-        <input type="file" id="file-input" accept=".pdf,.docx,.txt" />
+    <section class="hero">
+      <p class="eyebrow mono">&#8988; Plain-language contract reader &#8991;</p>
+      <h1 class="display">Read what<br />you <span class="accent">sign</span></h1>
+      <p class="lede">Upload a contract. Every clause is rewritten in plain English and shown beside the original, so you can check each line against the source.</p>
+    </section>
+
+    <form id="upload-form" class="sheet" novalidate>
+      <div class="sheet-row">
+        <p class="sheet-label"><span class="idx">01</span>Document</p>
+        <div>
+          <fieldset class="segmented">
+            <legend class="sr-only">How to provide the document</legend>
+            <label><input type="radio" name="source" value="file" checked /><span>Upload file</span></label>
+            <label><input type="radio" name="source" value="text" /><span>Paste text</span></label>
+          </fieldset>
+
+          <div id="file-panel">
+            <label class="dropzone" id="dropzone" for="file-input">
+              <input type="file" id="file-input" class="sr-only" accept=".pdf,.docx,.txt" />
+              <span class="dz-title">Drop a file here or <u>browse</u></span>
+              <span class="dz-meta mono">PDF &middot; DOCX &middot; TXT &mdash; scanned PDFs can't be read</span>
+              <span class="dz-file" id="file-name"></span>
+            </label>
+          </div>
+
+          <div id="text-panel" hidden>
+            <label for="text-input" class="sr-only">Contract text</label>
+            <textarea id="text-input" placeholder="Paste the contract or a few clauses here"></textarea>
+          </div>
+        </div>
       </div>
-      <div class="field">
-        <label for="text-input">...or paste text</label>
-        <textarea id="text-input" rows="6" placeholder="Paste a contract or clause text here"></textarea>
+
+      <div class="sheet-row">
+        <p class="sheet-label"><span class="idx">02</span>Language</p>
+        <div>
+          <label for="lang-select" class="sr-only">Translate the plain-English version into</label>
+          <select id="lang-select">
+            <option value="en">English only</option>
+            <option value="hi">English + Hindi (experimental)</option>
+            <option value="mr">English + Marathi (experimental)</option>
+          </select>
+          <p class="sheet-hint">Translation is done by a local model, clause by clause. It is slow and has not been reviewed for legal accuracy. The English version is always shown too.</p>
+        </div>
       </div>
-      <div class="field">
-        <label for="lang-select">Simplify into</label>
-        <select id="lang-select">
-          <option value="en">English (no translation)</option>
-          <option value="hi">Hindi</option>
-          <option value="mr">Marathi</option>
-        </select>
+
+      <div class="sheet-row">
+        <p class="sheet-label"><span class="idx">03</span>Simplify</p>
+        <div class="run-row">
+          <button type="submit" class="btn" id="submit-btn">Simplify document <span class="arrow" aria-hidden="true">&rarr;</span></button>
+          <p id="status" class="status mono" role="status" aria-live="polite"></p>
+        </div>
       </div>
-      <button type="submit">Simplify</button>
-      <span id="status"></span>
     </form>
+
+    <ol class="steps">
+      <li>
+        <span class="step-idx mono">S_01</span>
+        <p class="step-title">Extract</p>
+        <p>Text is read from your file. Scanned images need OCR first.</p>
+      </li>
+      <li>
+        <span class="step-idx mono">S_02</span>
+        <p class="step-title">Split</p>
+        <p>The document is cut into clauses using its numbering.</p>
+      </li>
+      <li>
+        <span class="step-idx mono">S_03</span>
+        <p class="step-title">Context</p>
+        <p>Each clause is paired with the parties, the definitions it uses and the sections it cites.</p>
+      </li>
+      <li>
+        <span class="step-idx mono">S_04</span>
+        <p class="step-title">Simplify</p>
+        <p>An AI model rewrites each clause. Clauses it is unsure about are flagged.</p>
+      </li>
+    </ol>
+
+    <section class="data-note" aria-labelledby="data-heading">
+      <p class="sheet-label" id="data-heading"><span class="idx">!</span>Your data</p>
+      <p>The text of your document is sent to Groq's API to be simplified. Simplified clauses are cached on this server so repeat runs are faster. Results are kept in memory only until the server restarts. Don't upload documents you aren't allowed to share with a third-party service.</p>
+    </section>
   </main>
+
+  <footer class="site-footer mono">
+    <p>Legal_Simplifier</p>
+    <p>Automated summary &mdash; not legal advice</p>
+  </footer>
 
   <script src="/script.js"></script>
 </body>

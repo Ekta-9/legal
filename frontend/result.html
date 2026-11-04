@@ -3,32 +3,56 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Legal Document Simplifier — Result</title>
+  <title>Simplified Contract</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@900&family=Space+Mono:wght@400;700&display=swap" />
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600&display=swap" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <header>
-    <h1>Legal Document Simplifier</h1>
-    <p class="disclaimer">This is an automated summary, not legal advice. Always verify against the original text before relying on it.</p>
+  <header class="topbar">
+    <a class="brand" href="/">Legal<span>_</span>Simplifier</a>
+    <p class="topbar-note">[ Not legal advice<span class="long"> &mdash; always verify against the original</span> ]</p>
   </header>
 
   <main>
-    <p class="back-link"><a href="/">&larr; Simplify another document</a></p>
-    <p id="status">Loading...</p>
-
-    <div class="doc-columns">
-      <div class="doc-pane doc-pane--original">
-        <h3>Original</h3>
-        <div id="original-doc"></div>
+    <section class="run-head">
+      <div>
+        <p class="eyebrow mono">&#8988; Result <span id="lang-label"></span> &#8991;</p>
+        <p class="counter" aria-hidden="true"><span id="count-done">00</span><span class="counter-sep">/</span><span id="count-total">00</span></p>
+        <p class="counter-label mono">Clauses simplified</p>
       </div>
-      <div class="doc-pane doc-pane--simplified">
-        <h3 id="simplified-heading">Simplified</h3>
-        <p class="print-only" id="print-disclaimer">This is an automated, simplified rendering of the uploaded document — not legal advice. Always verify against the original text before relying on it.</p>
-        <div id="simplified-doc"></div>
-        <button type="button" id="download-btn" disabled>Download simplified (PDF)</button>
+      <div class="run-meta">
+        <p id="status" class="status mono" role="status" aria-live="polite">Connecting...</p>
+        <div class="progress" aria-hidden="true"><span id="progress-bar"></span></div>
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <a href="/" class="btn btn-ghost"><span aria-hidden="true">&larr;</span> New document</a>
+      <label class="toggle mono"><input type="checkbox" id="show-original" checked /> Show original</label>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="print-btn" disabled>Print / save PDF</button>
+    </div>
+
+    <p class="notice">Each plain-English version is an automated rewrite, not legal advice. Where a clause is marked <strong>&ldquo;model unsure&rdquo;</strong>, the AI itself reported low confidence &mdash; read the original closely. The flag is not an independent check, so read the original of any clause that matters to you.</p>
+
+    <p class="print-only">Automated plain-English rendering of the uploaded document &mdash; not legal advice. Always verify against the original text before relying on it.</p>
+
+    <div id="clauses">
+      <div class="clause-head mono" aria-hidden="true">
+        <span>&sect;</span>
+        <span class="head-original">Original</span>
+        <span>Plain English</span>
       </div>
     </div>
   </main>
+
+  <footer class="site-footer mono">
+    <p>Legal_Simplifier</p>
+    <p>Automated summary &mdash; not legal advice</p>
+  </footer>
 
   <script src="/result.js"></script>
 </body>
