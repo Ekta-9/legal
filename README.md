@@ -32,14 +32,13 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Get a free API key at <https://console.groq.com/keys>, then:
+Get a free API key at <https://console.groq.com/keys> and create a file named `.env` in the project root:
 
-```bash
-cp .env.example .env            # Windows: copy .env.example .env
-# edit .env and set GROQ_API_KEY=...
+```
+GROQ_API_KEY=your-key-here
 ```
 
-To use a different Groq model, set `GROQ_MODEL` in `.env`. Cached results are keyed by model, so switching models never serves another model's output.
+`.env` is gitignored, so the key never gets committed. To use a different Groq model, add `GROQ_MODEL=...` to the same file. Cached results are keyed by model, so switching models never serves another model's output.
 
 ## Running
 
