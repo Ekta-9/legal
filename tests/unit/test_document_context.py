@@ -245,3 +245,22 @@ def test_with_many_parties_a_clause_only_gets_the_ones_it_names():
     preamble = "This Agreement is made between " + ", ".join(f'{n} Ltd ("{n}")' for n in names) + "."
     text = preamble + "\n\n1. Payment\nAlpha pays Bravo monthly."
     assert [p.split(":")[0] for p in _context_for(text, "1.").parties] == ["Alpha", "Bravo"]
+
+
+def test_herein_referred_to_as_alias_and_collective_names():
+    text = (
+        'Agreement made between Co-Diagnostics, Inc. (herein referred to as "Principal") and Domini Social Investments LLC '
+        '("Domini" or the "Sponsor"). Principal and Domini shall collectively be referred to as the "Parties."\n\n'
+        "1. Duties\nThe Sponsor serves the Principal. Either Party may end this."
+    )
+    context = build_document_context(text, split_clauses(text))
+    assert [p.split(":")[0] for p in context.parties] == ["Principal", "Domini", "Sponsor"]
+    assert context.definitions["Parties"] == "Parties: Principal and Domini"
+    assert "Parties" in _context_for(text, "1.").definitions  # "Party" is the singular of the defined "Parties"
+
+
+def test_a_product_name_starting_with_co_is_not_a_company():
+    text = 'Between Acme, Inc. ("Principal") and Beta, Inc. ("Distributor"): Principal appoints Distributor to sell the Co-Dx Box instrument (the "Products").\n\n3. Sales\nDistributor sells the Products.'
+    context = build_document_context(text, split_clauses(text))
+    assert "Products" not in [p.split(":")[0] for p in context.parties]
+    assert "Products" in _context_for(text, "3.").definitions

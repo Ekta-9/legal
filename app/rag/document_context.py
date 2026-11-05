@@ -60,9 +60,15 @@ _POINTER_RE = re.compile(
 # Acme Ltd, a company ... (the "Provider") / ... (hereinafter referred to as "Client") /
 # ... ("VNBJ SPA," and ...) — short markers like "twelve (12) months", "(a)" or "(Zhongshan)" may sit inside the subject
 _SUBJECT = r"(?P<subject>(?:[^()]|\([0-9a-z]{1,3}\)|\([A-Z][A-Za-z ]{1,20}\)){2,160}?)"
+_HEREIN = r"(?:[Hh]ereinafter|[Hh]erein|[Hh]ereafter)\s+(?:referred\s+to\s+as\s+|called\s+)?"
 _INLINE_RE = re.compile(
-    rf"{_SUBJECT}\s*\(\s*(?:[Hh]ereinafter\s+(?:referred\s+to\s+as\s+|called\s+)?)?"
-    rf"(?:[Tt]he\s+)?{_TERM}\s*(?:\)|,?\s*and\b)"
+    rf"{_SUBJECT}\s*\(\s*(?:{_HEREIN})?"
+    rf"(?:[Tt]he\s+)?{_TERM}\s*(?:\)|,?\s*(?:and|or)\b)"
+)
+# Domini Social Investments LLC ("Domini" or the "Sponsor") — a second name for the same thing
+_ALIAS_RE = re.compile(
+    rf"{_SUBJECT}\s*\(\s*(?:{_HEREIN})?(?:[Tt]he\s+)?[{_OPEN_QUOTE}]{_TERM_BODY}[{_CLOSE_QUOTE}]\s*,?\s*or\s+"
+    rf"(?:[Tt]he\s+)?{_TERM}\s*\)"
 )
 # ("Veoneer US" and together with Veoneer AB, the "Veoneer Parties") /
 # (the "VNBJ SPA," and the consummation of ..., the "VNBJ Closing") — the second term in one bracket
@@ -72,7 +78,13 @@ _SECOND_IN_BRACKET_RE = re.compile(
 )
 # Data Call Technologies, Inc. ... hereinafter referred to as "Licensor"   (no brackets)
 _HEREINAFTER_RE = re.compile(
-    rf"(?P<subject>[^\"“”()]{{2,300}}?)\s*,?\s*hereinafter\s+(?:referred\s+to\s+as|called)\s+(?:the\s+)?{_TERM}",
+    rf"(?P<subject>[^\"“”()]{{2,300}}?)\s*,?\s*here(?:in)?(?:after)?\s+(?:referred\s+to\s+as|called)\s+(?:the\s+)?{_TERM}",
+    re.IGNORECASE,
+)
+# ChipMOS and Tsinghua Unigroup shall collectively be referred to as the "Parties."
+_REFERRED_TO_AS_RE = re.compile(
+    rf"(?P<subject>[^.;:\n\"“”()]{{2,200}}?)\s+(?:shall|will|may)\s+(?:collectively\s+|together\s+|each\s+)?be\s+"
+    rf"(?:collectively\s+|together\s+)?referred\s+to\s+(?:collectively\s+|together\s+)?as\s+(?:the\s+)?{_TERM}",
     re.IGNORECASE,
 )
 # Section 7 / clause 4.2 / Clauses 5, 6 and 9 / Clauses 3 to 5 / Section 5(b) — but not references into
@@ -93,7 +105,8 @@ _HEADING_NUMBER_RE = re.compile(r"^\s*(?:(?:SECTION|ARTICLE)\s+)?(\d+(?:\.\d+)*)
 _RECITALS_START_RE = re.compile(r"\b(?:WHEREAS|RECITALS|BACKGROUND|NOW,?\s+THEREFORE|IT\s+IS\s+(?:HEREBY\s+)?AGREED)\b")
 # A party is a person or an organisation, not "Effective Date: is made ... as of October 30, 2019"
 _ORGANISATION_RE = re.compile(
-    r"\b(?:Inc|Ltd|LLC|LLP|L\.P|AG|GmbH|Corp|Corporation|Company|Co|Limited|plc|PLC|S\.A|N\.V|B\.V|AB|SE|Pvt|Bank|"
+    # "Co." but not the "Co" of a product name like "Co-Dx Box"
+    r"\b(?:Inc|Ltd|LLC|LLP|L\.P|AG|GmbH|Corp|Corporation|Company|Co(?=\.)|Limited|plc|PLC|S\.A|N\.V|B\.V|AB|SE|Pvt|Bank|"
     r"Trust|University|Foundation|Association)\b\.?|\b(?:individual|residing|resident|trading\s+as)\b|\b(?:Mr|Mrs|Ms|Dr)\.",
 )
 _NAME_LIKE_RE = re.compile(r"^(?:[A-Z][\w.&'’-]*\s+){1,4}[A-Z][\w.&'’-]*(?:,|$)")
@@ -144,16 +157,27 @@ def _is_party(subject: str) -> bool:
     return bool(_ORGANISATION_RE.search(subject) or _NAME_LIKE_RE.match(subject))
 
 
+def _singular(term: str) -> str | None:
+    """"Parties" -> "Party", "Products" -> "Product": a plural defined term is also used in the singular."""
+    if term.endswith("ies"):
+        return term[:-3] + "y"
+    if term.endswith("s") and not term.endswith("ss"):
+        return term[:-1]
+    return None
+
+
 def _uses_term(text: str, term: str) -> bool:
-    """Defined terms are used in the plural and possessive too ("Business Days", "Supplier's")."""
-    return re.search(rf"\b{re.escape(term)}(?:s|es)?(?:['’]s?)?(?!\w)", text) is not None
+    """Defined terms are used in the plural and possessive too ("Business Days", "Supplier's"),
+    and plural terms in the singular ("Parties" -> "either Party")."""
+    forms = [re.escape(form) for form in (term, _singular(term)) if form]
+    return re.search(rf"\b(?:{'|'.join(forms)})(?:s|es)?(?:['’]s?)?(?!\w)", text) is not None
 
 
 def _defines_term(text: str, term: str) -> bool:
     """A clause that puts the term in quotes is defining it (or pointing to its
     definition), so it doesn't need the definition handed back as context.
     """
-    return re.search(rf"[{_OPEN_QUOTE}]{re.escape(term)},?[{_CLOSE_QUOTE}]", text) is not None
+    return re.search(rf"[{_OPEN_QUOTE}]{re.escape(term)}[,.]?[{_CLOSE_QUOTE}]", text) is not None
 
 
 def _without_longer_terms(text: str, term: str, terms) -> str:
@@ -217,6 +241,10 @@ def _candidates(text: str) -> list[_Candidate]:
         found.append(_Candidate(m.start("term"), m.group("term"), pointer=m.group("number")))
     for m in _INLINE_RE.finditer(text):
         found.append(_Candidate(m.start("term"), m.group("term"), subject=_clean_subject(m.group("subject"))))
+    for m in _REFERRED_TO_AS_RE.finditer(text):
+        found.append(_Candidate(m.start("term"), m.group("term"), subject=_collapse(m.group("subject"))))
+    for m in _ALIAS_RE.finditer(text):
+        found.append(_Candidate(m.start("term"), m.group("term"), subject=_clean_subject(m.group("subject"))))
     for m in _SECOND_IN_BRACKET_RE.finditer(text):
         subject = _collapse(m.group("subject"))
         if m.group("together"):
@@ -244,7 +272,7 @@ def build_document_context(text: str, clauses: list[Clause]) -> DocumentContext:
             context.sections.setdefault(number.group(1), clause)
 
     for candidate in _candidates(text):
-        term = candidate.term.strip(" ,")
+        term = candidate.term.strip(" ,.;")  # the "Parties." of 'collectively referred to as the "Parties."'
         if term.lower() in _SELF_REFERENCES or term in context.definitions or term in party_terms:
             continue
         if candidate.pointer is not None:

@@ -135,7 +135,7 @@ def main() -> None:
     parser.add_argument("--details", action="store_true", help="list every miss and wrong retrieval")
     args = parser.parse_args()
 
-    for split in ("eval", "dev", "heldout", "cuad", None):
+    for split in ("eval", "dev", "heldout", "cuad", "cuad_fresh", None):
         score = score_split(split)
         print(_row(split or "all", score))
         if args.details and split is not None:
