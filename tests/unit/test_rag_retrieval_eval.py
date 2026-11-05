@@ -3,7 +3,7 @@ import pytest
 from tests.eval.rag_eval import score_split
 
 
-@pytest.mark.parametrize("split", ["eval", "dev", "heldout"])
+@pytest.mark.parametrize("split", ["eval", "dev", "heldout", "cuad"])
 def test_retrieval_scores_do_not_regress(split):
     """Runs tests/eval/rag_eval.py's hand-labelled retrieval evaluation. All
     three splits currently score 100%; a change that lowers any of them

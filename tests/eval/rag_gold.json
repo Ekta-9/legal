@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-labelled answers for app/rag/document_context.py. Clauses are keyed by their number ('4.2') or 'Preamble'; a clause not listed should receive no definitions and no sections. parties: role -> name that must appear in the extracted party entry. split: 'eval' = the tests/eval contracts, 'dev' = the stress document used while improving retrieval, 'heldout' = written before the improvements and not used to tune them. Caveat: the consultancy_heldout failure on 'paragraphs 2 to 3 of Schedule B' was fixed after it was seen, so that one item is no longer held out; add fresh documents to keep the held-out score honest. split 'cuad': real contracts sampled at random (seed 20261105) from the CUAD dataset (The Atticus Project, CC BY 4.0, https://www.atticusprojectai.org/cuad), labelled by reading before retrieval was run on them, and not used to tune it. Labelling rules: a term is defined if this document defines it in quotes (self-references like 'this Agreement' and terms whose meaning is only in an appendix table excluded); a clause uses a term if it appears capitalised (plural/singular too) outside the clause that defines it, and not only inside a longer defined term; sections are references to numbered parts of this document only. not_parties: preamble terms that must not be listed as parties.",
+  "_comment": "Hand-labelled answers for app/rag/document_context.py. Clauses are keyed by their number ('4.2') or 'Preamble'; a clause not listed should receive no definitions and no sections. parties: role -> name that must appear in the extracted party entry. split: 'eval' = the tests/eval contracts, 'dev' = the stress document used while improving retrieval, 'heldout' = written before the improvements and not used to tune them. Caveat: the consultancy_heldout failure on 'paragraphs 2 to 3 of Schedule B' was fixed after it was seen, so that one item is no longer held out; add fresh documents to keep the held-out score honest. split 'cuad': real contracts sampled at random (seed 20261105) from the CUAD dataset (The Atticus Project, CC BY 4.0, https://www.atticusprojectai.org/cuad), labelled by reading before retrieval was run on them, and not used to tune it. Labelling rules: a term is defined if this document defines it in quotes (self-references like 'this Agreement' and terms whose meaning is only in an appendix table excluded); a clause uses a term if it appears capitalised (plural/singular too) outside the clause that defines it, and not only inside a longer defined term; sections are references to numbered parts of this document only. not_parties: preamble terms that must not be listed as parties. Corrections after the first scoring run: cuad_capital_maintenance clause 16 and cuad_jv_termination clause 4 also contain the schedule / signature page the splitter merged into them, which use these terms; the first labels missed that (labelling errors, not retrieval changes). The cuad split was then used to fix retrieval, so it is no longer held out.",
   "documents": [
     {
       "name": "rental_agreement",
@@ -396,6 +396,13 @@
             "4",
             "7"
           ]
+        },
+        "16": {
+          "definitions": [
+            "Specified Minimum Percentage",
+            "Company Action Level RBC"
+          ],
+          "sections": []
         }
       }
     },
@@ -472,7 +479,9 @@
             "VNBJ Closing",
             "VNBZ Closing",
             "VNBJ SPA",
-            "VNBZ SPA"
+            "VNBZ SPA",
+            "Veoneer Parties",
+            "Nissin Parties"
           ],
           "sections": [
             "1"

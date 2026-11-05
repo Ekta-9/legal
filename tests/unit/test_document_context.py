@@ -169,3 +169,79 @@ def test_second_party_entry_has_no_leading_and():
     text = 'This Agreement is made between Ravi Kumar, of Pune (the "Owner"), and Priya Shah, of Mumbai (the "Tenant").\n\n1. Rent\nThe Tenant pays the Owner.'
     context = build_document_context(text, split_clauses(text))
     assert context.parties[1] == "Tenant: Priya Shah, of Mumbai"
+
+
+def test_the_document_naming_itself_is_not_a_definition():
+    text = '1.1 The purpose of this distribution Agreement (hereinafter "Agreement") is to license Content.\n\n1.2 This Agreement lasts one year.'
+    assert _context_for(text, "1.2") is None
+
+
+def test_terms_defined_inside_a_sentence_are_found():
+    text = (
+        '1. Capital\nAIG keeps Total Adjusted Capital above the Specified Minimum Percentage.\n\n'
+        '2. Defined Terms\nThe terms "Total Adjusted Capital" and "RBC" shall have the meanings ascribed under Texas law. '
+        'The term "Specified Minimum Percentage" shall be equal to the percentage in Schedule 1.'
+    )
+    assert set(_context_for(text, "1.").definitions) == {"Total Adjusted Capital", "Specified Minimum Percentage"}
+
+
+def test_unquoted_and_unbracketed_definitions_and_parties_are_found():
+    text = (
+        "CONTENT AGREEMENT\n\nbetween\n\nData Call Technologies, Inc. 600 Kenrick, Houston\n\n"
+        'hereinafter referred to as "Licensor"\n\nand\n\nPLAN_B MEDIA AG Schaafenstr. 25 Cologne hereinafter referred to as "plan_b"\n\n'
+        "1.1 Licensor supplies Content to End Users.\n\n1.2 End User means any person receiving Content on a mobile device."
+    )
+    context = build_document_context(text, split_clauses(text))
+    assert context.parties[0].startswith("Licensor: Data Call Technologies, Inc.")
+    assert context.parties[1].startswith("plan_b: PLAN_B MEDIA AG")
+    assert "End User" in _context_for(text, "1.1").definitions
+
+
+def test_two_terms_in_one_bracket_and_group_terms():
+    text = (
+        'This Amendment is made by and among Veoneer AB, a Swedish corporation ("Veoneer AB") and Veoneer US, Inc. '
+        '("Veoneer US" and together with Veoneer AB, the "Veoneer Parties").\n\nRECITALS\n\n'
+        '(A) Veoneer AB sells shares under the VNBJ Share Purchase Agreement (the "VNBJ SPA," and the completion '
+        'of the sale under the VNBJ SPA, the "VNBJ Closing").\n\n'
+        "Article 1. Termination\nOn the VNBJ Closing the Veoneer Parties leave the joint venture."
+    )
+    context = build_document_context(text, split_clauses(text))
+    assert "Veoneer Parties: Veoneer US and Veoneer AB" in context.parties
+    assert context.definitions["VNBJ Closing"].startswith("VNBJ Closing: the completion of the sale")
+    assert "VNBJ SPA" in context.definitions
+
+
+def test_recital_terms_are_definitions_not_parties():
+    text = (
+        'This Agreement is made between American International Group, Inc. ("AIG") and American General Life Insurance '
+        'Company (the "Company").\n\nWHEREAS, the Company is regulated by the insurance laws of Texas (the "Domiciliary State");\n\n'
+        "1. Approval\nContributions must be approved by the Domiciliary State."
+    )
+    context = build_document_context(text, split_clauses(text))
+    assert [p.split(":")[0] for p in context.parties] == ["AIG", "Company"]
+    assert "Domiciliary State" in _context_for(text, "1.").definitions
+
+
+def test_references_into_other_documents_are_ignored_but_this_agreement_is_not():
+    text = (
+        "1. Contributions\nBody.\n\n2. Timing\nBody.\n\n"
+        "3. Accounting\nRecognised under paragraph 1 of Statement of Accounting Principles No. 72 and Sections 2.1 of the JV Agreement.\n\n"
+        "4. Rights\nPolicyholders may enforce paragraph 1 of this Agreement."
+    )
+    assert _context_for(text, "3.") is None
+    assert set(_context_for(text, "4.").referenced_sections) == {"1"}
+
+
+def test_a_term_inside_a_longer_defined_term_is_not_a_separate_use_and_apostrophes_stay_in_terms():
+    text = (
+        '1. Definitions\n"RBC" means risk-based capital. "Company Action Level RBC" means the RBC level set by regulators. '
+        '"Moody\'s" means Moody\'s Investors Service.\n\n2. Ratings\nThe Company Action Level RBC is reviewed by Moody\'s.'
+    )
+    assert set(_context_for(text, "2.").definitions) == {"Company Action Level RBC", "Moody's"}
+
+
+def test_with_many_parties_a_clause_only_gets_the_ones_it_names():
+    names = ["Alpha", "Bravo", "Charlie", "Delta", "Echo"]
+    preamble = "This Agreement is made between " + ", ".join(f'{n} Ltd ("{n}")' for n in names) + "."
+    text = preamble + "\n\n1. Payment\nAlpha pays Bravo monthly."
+    assert [p.split(":")[0] for p in _context_for(text, "1.").parties] == ["Alpha", "Bravo"]
