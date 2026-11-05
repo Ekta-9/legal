@@ -15,7 +15,7 @@ GROQ_MAX_COMPLETION_TOKENS = 8192
 DROPPED_MAX_RETRIES = 1  # re-ask once for clauses missing from the model's response, then report them as failed
 
 # Cache — the model name is added to the cache key automatically (see cache/store.py)
-CACHE_PROMPT_VERSION = "v5"  # bump to invalidate all cached results (v5: use context to explain terms and name parties)
+CACHE_PROMPT_VERSION = "v6"  # bump to invalidate all cached results (v6: back to the v4 prompt; v5's context rules lowered faithfulness)
 
 # Input limits: keep one upload from exhausting memory or the Groq quota
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
