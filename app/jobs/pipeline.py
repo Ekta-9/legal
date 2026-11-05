@@ -134,7 +134,10 @@ async def _process_document(job_id: str, filename: str, content: bytes) -> None:
         # retrieval only improves the prompt; simplify without it rather than fail the job
         logger.exception("Job %s: context retrieval failed, continuing without it", job_id)
 
-    job_manager.set_clauses(job_id, [ClauseOutline(id=c.id, heading=c.heading, text=c.text) for c in clauses])
+    job_manager.set_clauses(
+        job_id,
+        [ClauseOutline(id=c.id, heading=c.heading, text=c.text, context=c.context) for c in clauses],
+    )
     if not clauses:
         job_manager.set_status(job_id, JobStatus.DONE)
         return

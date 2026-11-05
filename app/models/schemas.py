@@ -53,6 +53,7 @@ class ClauseOutline(BaseModel):
     id: str
     heading: str | None = None
     text: str
+    context: ClauseContext | None = None  # shown beside the clause, so the reader sees what the model was given
 
 
 class JobStatus(str, enum.Enum):

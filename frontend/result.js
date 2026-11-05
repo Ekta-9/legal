@@ -178,10 +178,39 @@ function buildRow(clause, index) {
   plain.appendChild(el("p", "clause-text", "Processing"));
   plain.appendChild(el("div", "clause-meta mono"));
   plain.appendChild(el("div", "clause-terms"));
+  const context = el("div", "clause-terms clause-context");
+  fillContext(context, clause.context);
+  plain.appendChild(context);
   plain.appendChild(el("div", "translation"));
   row.appendChild(plain);
 
   return row;
+}
+
+// Parties, defined terms and referenced clauses retrieved from elsewhere in the
+// same contract (app/rag/document_context.py) — the same material the model was given
+function fillContext(container, context) {
+  if (!context) return;
+  const entries = [];
+  for (const party of context.parties || []) {
+    const [role, ...rest] = party.split(": ");
+    entries.push([role, rest.join(": ")]);
+  }
+  for (const [term, definition] of Object.entries(context.definitions || {})) {
+    entries.push([term, definition.startsWith(`${term}: `) ? definition.slice(term.length + 2) : definition]);
+  }
+  for (const [number, text] of Object.entries(context.referenced_sections || {})) {
+    entries.push([`Clause ${number}`, text]);
+  }
+  if (entries.length === 0) return;
+
+  container.appendChild(el("span", "terms-label mono", "From this contract"));
+  for (const [name, text] of entries) {
+    const details = el("details", "term");
+    details.appendChild(el("summary", "mono", name));
+    details.appendChild(el("p", "", text));
+    container.appendChild(details);
+  }
 }
 
 function rowFor(clause) {

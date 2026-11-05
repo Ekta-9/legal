@@ -119,6 +119,11 @@ async def test_retrieved_document_context_reaches_the_llm_prompt(async_client, w
     assert payment["context"]["parties"] == ["Provider: Acme Ltd", "Client: John Doe"]
     assert payment["context"]["definitions"] == {"Fee": '"Fee" means INR 50,000 per month'}
     assert "Disputed invoices" in payment["context"]["referenced_sections"]["3"]
+    # the page gets the same context with the clause outline, to show under the clause
+    outline = next(c for c in result["clauses"] if c["id"] == "clause_3")
+    assert outline["context"]["parties"] == payment["context"]["parties"]
+    assert outline["context"]["definitions"] == payment["context"]["definitions"]
+    assert outline["context"]["referenced_sections"] == payment["context"]["referenced_sections"]
 
 
 @pytest.mark.asyncio
