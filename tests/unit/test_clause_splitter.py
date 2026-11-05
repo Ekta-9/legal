@@ -80,10 +80,11 @@ COVERAGE_CASES = {
 
 @pytest.mark.parametrize("name", COVERAGE_CASES)
 def test_every_line_lands_in_exactly_one_clause_in_order(name):
-    """Coverage invariant: splitting never drops, duplicates or reorders text."""
+    """Coverage invariant: splitting never drops, duplicates or reorders text
+    (it may split a line where a clause number sits mid-line)."""
     text = COVERAGE_CASES[name]
     clauses = split_clauses(text)
-    assert [line for c in clauses for line in _lines(c.text)] == _lines(text)
+    assert " ".join(c.text for c in clauses).split() == text.split()
     assert [c.id for c in clauses] == [f"clause_{i}" for i in range(1, len(clauses) + 1)]
 
 
@@ -133,3 +134,58 @@ def test_one_paragraph_per_line_text_splits_per_line():
 def test_hard_wrapped_prose_is_not_split_per_line():
     text = "The Tenant shall pay the rent on or before the seventh day of\neach calendar month by bank transfer to the account notified\nby the Owner in writing."
     assert len(split_clauses(text)) == 1
+
+
+def _labels(text: str) -> list[str]:
+    from tests.eval.rag_eval import clause_label
+
+    return [str(clause_label(c.heading)) for c in split_clauses(text)]
+
+
+def test_bare_number_before_a_caps_heading_is_a_clause_but_before_prose_is_not():
+    text = "1    PURPOSE  OF  THE  AGREEMENT\n\n1.1  The purpose is set out here.\n\n15 days notice is required.\n\n2    PAYMENT\n\n2.1  Pay monthly."
+    assert _labels(text) == ["1", "1.1", "2", "2.1"]
+
+
+def test_lowercase_sub_clause_is_accepted_only_as_the_exact_next_number():
+    text = (
+        "3    OBLIGATIONS  OF  PLAN_B\n\n3.1  plan_b will distribute Content.\n\n3.2  plan_b shall market it.\n\n"
+        "4.    Price\nThe price is set out in clause\n4.2 hereof and may change."
+    )
+    assert _labels(text) == ["3", "3.1", "3.2", "4"]
+
+
+def test_heading_after_page_debris_on_the_same_line_starts_a_clause():
+    text = "1.1 Scope The parties cooperate.\n\n(Translation, for reference only)   1.2 Covenants of Parties\nEach party covenants.\n\nConfidential   Article 2 Term\n2.1 Term Three years."
+    clauses = split_clauses(text)
+    assert _labels(text) == ["1.1", "1.2", "2", "2.1"]
+    assert clauses[0].text.endswith("(Translation, for reference only)")
+
+
+def test_run_on_paragraph_is_split_at_the_next_number_in_sequence_only():
+    text = (
+        "Agreement made this day between Principal and Distributor, who agree as follows. CONDITIONS: "
+        "1. The Principal appoints the Distributor for the Territory and its customers. "
+        "2. The Distributor sells in the Territory under clause 7. The rest applies. "
+        "3. This Agreement lasts until March 18. 2021, unless ended earlier. 5. Nothing here is out of sequence."
+    )
+    assert _labels(text) == ["Preamble", "1", "2", "3"]
+    assert "March 18. 2021" in split_clauses(text)[3].text
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("cuad_content_license", ["Preamble"] + [x for n, subs in [(1, 2), (2, 3), (3, 4), (4, 2), (5, 4), (6, 3), (7, 5), (8, 4), (9, 1), (10, 2)] for x in [str(n)] + [f"{n}.{s}" for s in range(1, subs + 1)]]),
+        ("cuad_distributor", ["Preamble"] + [str(n) for n in range(1, 19)]),
+        ("cuad_strategic_alliance", ["Preamble", "1", "1.1", "1.2", "1.3", "2", "2.1", "2.2", "2.3", "3"] + [f"3.{n}" for n in range(1, 13)]),
+    ],
+)
+def test_real_contracts_split_along_their_own_numbering(name, expected):
+    """CUAD contracts (tests/eval/rag_gold.json): headings without dots, lowercase
+    sub-clauses, page debris before headings, and clauses run together in paragraphs."""
+    from tests.eval.rag_eval import load_documents
+
+    text = next(d["text"] for d in load_documents() if d["name"] == name)
+    assert _labels(text) == expected
+    assert " ".join(c.text for c in split_clauses(text)).split() == text.split()

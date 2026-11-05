@@ -17,6 +17,17 @@ _SENTENCE_END = (".", "!", "?", ";", ":", '"', "”", ")")
 MAX_NUMBER_JUMP = 3  # tolerate a heading or two lost in extraction without rejecting everything after it
 MAX_FIRST_NUMBER = 50
 
+# "(Translation, for reference only)   1.2 Covenants of Parties" — page debris left on the same line as a
+# heading. Only dotted numbers and ARTICLE/SECTION, after a run of spaces: a bare "  3 " is usually a table column.
+_EMBEDDED_HEADING_RE = re.compile(
+    r"[ \t]{3,}(?=(?:\d{1,3}\.\d{1,3}(?:\.\d{1,3})*\.?|(?i:ARTICLE|SECTION)\s+\d{1,3})\s+[A-Z])"
+)
+# "...CONDITIONS: 1. The Principal appoints ... agreement. 2. The Principal grants ..." — a contract
+# whose clauses run on inside long paragraphs
+_INLINE_NUMBER_RE = re.compile(r"(?<=[.;:])\s+(?=(\d{1,2})\.\s+[A-Z])")
+_LINE_START_NUMBER_RE = re.compile(r"^\s*(\d{1,3})(?:\.\d{1,3})*[.)]?\s+[A-Z]")
+MIN_RUN_ON_LINE = 200  # only lines this long are searched for inline clause numbers
+
 
 class _NumberingTracker:
     """Accepts a numbered line as a clause boundary only if it continues the
@@ -26,6 +37,7 @@ class _NumberingTracker:
 
     def __init__(self):
         self.last_top: int | None = None
+        self.last: list[int] | None = None
 
     def accept(self, num: str) -> bool:
         parts = [int(p) for p in num.split(".")]
@@ -38,7 +50,19 @@ class _NumberingTracker:
             ok = self.last_top < top <= self.last_top + MAX_NUMBER_JUMP
         if ok:
             self.last_top = top
+            self.last = parts
         return ok
+
+    def is_next_sub_clause(self, num: str) -> bool:
+        """3.1 right after heading 3, or 3.2 right after 3.1: the exact next
+        number, so it can start lowercase ("3.1 plan_b will ...") without
+        risking a wrapped "4.2 hereof" being taken for a clause."""
+        parts = [int(p) for p in num.split(".")]
+        if self.last is None or len(parts) != 2:
+            return False
+        top, sub = parts
+        last_top, last_sub = self.last[0], (self.last[1] if len(self.last) > 1 else 0)
+        return (top == last_top and sub == last_sub + 1) or (top == last_top + 1 and sub == 1)
 
 
 def _starts_like_heading(rest: str) -> bool:
@@ -55,11 +79,15 @@ def _find_boundaries(lines: list[str]) -> list[int]:
         if numbered:
             num = numbered.group("num")
             rest = numbered.group("rest_nodot")
-            if rest is not None and "." not in num:
-                continue  # "15 days notice..." — a bare number with no dot is not a clause number
-            # clause text starts with a capital ("2. Term", "1.2 Fees"); a lowercase
-            # start is a wrapped line ("4.2 hereof") or a list inside a clause ("2. keep it clean")
-            if not _starts_like_heading(rest if rest is not None else numbered.group("rest") or ""):
+            if rest is not None and "." not in num and not _is_caps_heading(rest):
+                continue  # "15 days notice..." — a bare number is a clause number only before a heading ("1    PURPOSE")
+            # clause text starts with a capital ("2. Term", "1.2 Fees"); a lowercase start is
+            # a wrapped line ("4.2 hereof") or a list inside a clause ("2. keep it clean") —
+            # unless it is exactly the next sub-clause and the previous line is finished
+            text = rest if rest is not None else numbered.group("rest") or ""
+            if not _starts_like_heading(text) and not (
+                _previous_line_finished(lines, i) and numbers.is_next_sub_clause(num)
+            ):
                 continue
             if numbers.accept(num):
                 boundaries.append(i)
@@ -71,6 +99,39 @@ def _find_boundaries(lines: list[str]) -> list[int]:
             if not num[0].isdigit() or sections.accept(num):
                 boundaries.append(i)
     return boundaries
+
+
+def _previous_line_finished(lines: list[str], i: int) -> bool:
+    previous = lines[i - 1].strip() if i > 0 else ""
+    return not previous or previous.endswith(_SENTENCE_END) or _is_caps_heading(previous)
+
+
+def _split_run_on_lines(lines: list[str]) -> list[str]:
+    """Puts each clause number at the start of its own line: after page debris
+    on the same line, and inside run-on paragraphs — there only when the
+    number is exactly the next one in sequence ("... agreement. 2. The ..."),
+    so a "Section 2. The" or a date like "March 18. 2021" doesn't split.
+    Only whitespace between the pieces is dropped.
+    """
+    out: list[str] = []
+    last: int | None = None
+    for line in lines:
+        for piece in _EMBEDDED_HEADING_RE.split(line):
+            start = _LINE_START_NUMBER_RE.match(piece)
+            if start and (last is None or last < int(start.group(1)) <= last + MAX_NUMBER_JUMP):
+                last = int(start.group(1))
+            if len(piece) < MIN_RUN_ON_LINE:
+                out.append(piece)
+                continue
+            cut = 0
+            for match in _INLINE_NUMBER_RE.finditer(piece):
+                number = int(match.group(1))
+                if number == (last or 0) + 1:
+                    out.append(piece[cut : match.start()])
+                    cut = match.end()
+                    last = number
+            out.append(piece[cut:])
+    return out
 
 
 def _is_caps_heading(line: str) -> bool:
@@ -118,9 +179,10 @@ def split_clauses(text: str) -> list[Clause]:
        "Preamble" clause — it usually names the parties);
     2. ALL-CAPS headings, for unnumbered contracts;
     3. paragraphs.
-    Every non-blank line of `text` ends up in exactly one clause.
+    Every word of `text` ends up in exactly one clause, in order (a line may
+    be split where a clause number sits mid-line).
     """
-    lines = [line.rstrip() for line in text.strip().splitlines()]
+    lines = _split_run_on_lines([line.rstrip() for line in text.strip().splitlines()])
     if not any(line.strip() for line in lines):
         return []
 
