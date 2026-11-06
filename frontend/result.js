@@ -250,6 +250,12 @@ function fillRow(clause) {
   if (clause.self_check) {
     plain.insertBefore(el("p", "flag mono", "⚑ Model unsure — read the original closely"), plainText);
   }
+  if (clause.lost_qualifiers && clause.lost_qualifiers.length > 0) {
+    plain.insertBefore(
+      el("p", "flag mono", `⚑ May have lost ${clause.lost_qualifiers.join(" and ")} — check the original`),
+      plainText,
+    );
+  }
   if (clause.missing_numbers && clause.missing_numbers.length > 0) {
     plain.insertBefore(
       el("p", "flag mono", `⚑ Missing from plain version: ${clause.missing_numbers.join(", ")} — check the original`),

@@ -153,3 +153,33 @@ async def test_retry_that_loses_more_numbers_is_discarded():
 
     assert result[0].simplified == "Pay Rs 15,000 monthly."
     assert result[0].missing_numbers == ["5"]
+
+
+CAP = Clause(id="clause_1", text="Notwithstanding anything else in this Agreement, liability shall not exceed the fees.")
+
+
+@pytest.mark.asyncio
+async def test_lost_override_is_retried_with_the_problem_named_and_the_fix_kept():
+    from app.llm.qualifiers import lost_qualifiers
+
+    reversed_text = "Except as otherwise stated, liability cannot exceed the fees."
+    first = SimplifiedClause(
+        id="clause_1", original=CAP.text, simplified=reversed_text, self_check=False,
+        lost_qualifiers=lost_qualifiers(CAP.text, reversed_text),
+    )
+    client = ScriptedClient(
+        [_response([{"clause_id": "clause_1", "simplified": "Regardless of any other term, liability cannot exceed the fees.", "self_check": False}])]
+    )
+
+    result = await retry_flagged_clauses([first], [CAP], client)
+
+    retry_items = json.loads(client.calls[0].split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+    assert 'override ("notwithstanding")' in retry_items[0]["previous_attempt_problem"]
+    assert result[0].simplified.startswith("Regardless")
+    assert result[0].lost_qualifiers == []
+
+
+def test_a_first_attempt_prompt_never_carries_a_retry_note():
+    from app.llm.simplify import build_prompt
+
+    assert "previous_attempt_problem" not in build_prompt([CAP])

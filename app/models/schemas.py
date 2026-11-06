@@ -41,6 +41,9 @@ class SimplifiedClause(BaseModel):
     failed: bool = False  # True => the model never returned this clause; `simplified` is empty
     # numbers from the original that the simplification lost — a code check, independent of self_check
     missing_numbers: list[str] = []
+    # meaning-carrying words the simplification lost or reversed ("notwithstanding" -> "except as otherwise
+    # stated") — a code check, see app/llm/qualifiers.py
+    lost_qualifiers: list[str] = []
     readability: ReadabilityScore | None = None
     glossary_matches: list[GlossaryMatch] = []
 
