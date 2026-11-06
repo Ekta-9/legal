@@ -153,3 +153,33 @@ def test_pdf_over_the_page_limit_is_rejected(monkeypatch):
 
     with pytest.raises(ExtractionError, match="limit is 2"):
         extract("long.pdf", _pdf(pages))
+
+
+def test_page_furniture_is_removed():
+    from app.parsing.extract import strip_page_furniture
+
+    footer = "Source: ACME CORP, 8-K, 3/20/2020"
+    text = (
+        f"1. Rent\nPay monthly.\n\n{footer}\n\n2\n\n"
+        "(Translation, for reference only)   2. Term\nOne year.   - 1 -\n\n"
+        f"Confidential\n\n{footer}\n\n- 3 -\n\n(Translation, for reference only)\n\nConfidential\n\n"
+        f"3. Notice\nIn writing.\n\n{footer}\n\nConfidential\n\n(Translation, for reference only)   4. Law\nIndian law.\n\nPage 4 of 4"
+    )
+    cleaned = strip_page_furniture(text)
+
+    for debris in ("Source:", "Confidential", "Translation", "- 1 -", "- 3 -", "Page 4"):
+        assert debris not in cleaned
+    assert [line for line in cleaned.splitlines() if line.strip()] == [
+        "1. Rent", "Pay monthly.", "2. Term", "One year.", "3. Notice", "In writing.", "4. Law", "Indian law.",
+    ]
+
+
+def test_repeated_content_and_clause_numbers_are_not_furniture():
+    from app.parsing.extract import strip_page_furniture
+
+    text = (
+        "1    PURPOSE  OF  THE  AGREEMENT\n\n2    PAYMENT\n\nInstalment 1: Rs 10,000\nInstalment 2: Rs 10,000\n"
+        "Instalment 3: Rs 10,000\n\n(a) Not applicable.\n(b) Not applicable.\nNot applicable.\nNot applicable.\n"
+        "Not applicable.\n\nName:  Jim Ammons\nName:  Matthias Hellmann\nName:  Ravi Kumar"
+    )
+    assert strip_page_furniture(text) == text

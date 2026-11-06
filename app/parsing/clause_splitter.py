@@ -134,6 +134,25 @@ def _split_run_on_lines(lines: list[str]) -> list[str]:
     return out
 
 
+_HEADING_NUMBER_PREFIX_RE = re.compile(
+    r"^\s*(?:(?:section|article|clause)\s+)?(?:\d{1,3}(?:\.\d{1,3})*|[IVXLC]+)\.?\s*", re.IGNORECASE
+)
+_SMALL_WORDS = {"of", "and", "the", "to", "for", "in", "on", "a", "an", "or", "with", "by", "&"}
+
+
+def is_heading_only(text: str) -> bool:
+    """A clause that is only a title — "4    REVENUES", "Article 2 Term of Agreement" —
+    with nothing to simplify. One short line, no sentence ending, and every word
+    after the number capitalised (small words aside), so a one-line clause like
+    "5. Rent is due monthly" is not mistaken for a heading.
+    """
+    text = text.strip()
+    if "\n" in text or len(text) > 80 or text.endswith((".", ";", ":", ",")):
+        return False
+    words = _HEADING_NUMBER_PREFIX_RE.sub("", text).split()
+    return bool(words) and all(w[0].isupper() or not w[0].isalpha() or w.lower() in _SMALL_WORDS for w in words)
+
+
 def _is_caps_heading(line: str) -> bool:
     stripped = line.strip()
     letters = [ch for ch in stripped if ch.isalpha()]

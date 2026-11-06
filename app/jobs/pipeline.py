@@ -11,7 +11,7 @@ from app.llm.groq_client import GroqClient
 from app.llm.simplify import ClauseCache, CompletesPrompts, simplify_clauses
 from app.llm.verify import make_verifier
 from app.models.schemas import ClauseOutline, GlossaryMatch, JobStatus, SimplifiedClause
-from app.parsing.clause_splitter import split_clauses
+from app.parsing.clause_splitter import is_heading_only, split_clauses
 from app.parsing.extract import ExtractionError, extract
 from app.rag.document_context import attach_context
 
@@ -134,10 +134,13 @@ async def _process_document(job_id: str, filename: str, content: bytes) -> None:
         # retrieval only improves the prompt; simplify without it rather than fail the job
         logger.exception("Job %s: context retrieval failed, continuing without it", job_id)
 
-    job_manager.set_clauses(
-        job_id,
-        [ClauseOutline(id=c.id, heading=c.heading, text=c.text, context=c.context) for c in clauses],
-    )
+    outline = [
+        ClauseOutline(id=c.id, heading=c.heading, text=c.text, context=c.context, heading_only=is_heading_only(c.text))
+        for c in clauses
+    ]
+    job_manager.set_clauses(job_id, outline)
+    headings = {c.id for c in outline if c.heading_only}
+    clauses = [c for c in clauses if c.id not in headings]  # titles have nothing to simplify
     if not clauses:
         job_manager.set_status(job_id, JobStatus.DONE)
         return

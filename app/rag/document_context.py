@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass, field
 
 from app.models.schemas import Clause, ClauseContext
-from app.parsing.clause_splitter import PREAMBLE_HEADING
+from app.parsing.clause_splitter import PREAMBLE_HEADING, is_heading_only
 
 MAX_CONTEXT_CHARS = 1500  # per clause, across parties + definitions + referenced sections
 MAX_PARTY_CHARS = 160  # a party's name matters; its full address doesn't
@@ -308,11 +308,6 @@ def _resolve_section(number: str, sections: dict[str, Clause]) -> tuple[str, Cla
     return None
 
 
-def _is_heading_only(text: str) -> bool:
-    text = text.strip()
-    return "\n" not in text and len(text) <= 80 and not text.endswith((".", ";", ":", ","))
-
-
 def retrieve_clause_context(clause: Clause, context: DocumentContext) -> ClauseContext | None:
     """Parties first (always relevant, short), then definitions of terms the
     clause actually uses, then sections it refers to — until the budget runs out.
@@ -320,7 +315,7 @@ def retrieve_clause_context(clause: Clause, context: DocumentContext) -> ClauseC
     result = ClauseContext()
     budget = MAX_CONTEXT_CHARS
     clause_text = _collapse(clause.text)
-    if _is_heading_only(clause.text):
+    if is_heading_only(clause.text):
         return None  # "4    REVENUES" / "Article 2 Term of Agreement": a title, nothing to interpret
 
     parties = context.parties if clause.heading != PREAMBLE_HEADING else []  # the preamble names them itself

@@ -587,6 +587,21 @@ select:focus-visible {
   border-bottom: 1px solid var(--line);
 }
 
+.clause.is-heading {
+  padding: 32px 0 12px;
+  border-bottom-color: var(--line-strong);
+}
+
+.clause-title {
+  grid-column: 2 / -1;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .clause-idx {
   padding-top: 4px;
   color: var(--accent);
@@ -608,6 +623,8 @@ select:focus-visible {
 }
 
 .clause-original .clause-text {
+  /* keep the original's line breaks, but not the space runs of justified source text */
+  white-space: pre-line;
   color: var(--ink-2);
   font-size: 15px;
   line-height: 1.65;
@@ -813,6 +830,10 @@ select:focus-visible {
   .hide-original .clause {
     grid-template-columns: minmax(0, 1fr);
     gap: 14px;
+  }
+
+  .clause-title {
+    grid-column: auto;
   }
 
   .cell-label {

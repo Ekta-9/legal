@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.parsing.clause_splitter import PREAMBLE_HEADING, split_clauses
+from app.parsing.extract import strip_page_furniture
 from app.rag.document_context import attach_context, build_document_context
 
 EVAL_DIR = Path(__file__).resolve().parent
@@ -35,7 +36,11 @@ def clause_label(heading: str | None) -> str | None:
 def load_documents() -> list[dict]:
     gold = json.loads(GOLD.read_text(encoding="utf-8"))["documents"]
     eval_texts = {d["name"]: d["text"] for d in json.loads(EVAL_SET.read_text(encoding="utf-8"))["documents"]}
-    return [{**d, "text": eval_texts[d["name"]] if d.get("source") == "eval_set" else d["text"]} for d in gold]
+    # the same page-furniture cleanup app.parsing.extract.extract applies before splitting
+    return [
+        {**d, "text": strip_page_furniture(eval_texts[d["name"]] if d.get("source") == "eval_set" else d["text"]).strip()}
+        for d in gold
+    ]
 
 
 @dataclass

@@ -256,3 +256,17 @@ async def test_documents_over_the_clause_limit_are_rejected_before_any_llm_call(
     assert result["status"] == JobStatus.FAILED.value
     assert "limit is 2" in result["error"]
     assert with_fake_groq.prompts == []
+
+
+@pytest.mark.asyncio
+async def test_heading_only_clauses_are_shown_but_never_sent_to_the_model(async_client, with_fake_groq):
+    text = "Article 1 Payment Terms\n1.1 Rent\nPay monthly.\n\n1.2 Deposit\nPay a deposit.\n\nArticle 2 Ending\n2.1 Notice\nGive notice."
+    upload = await async_client.post("/api/documents", data={"text": text})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.DONE.value
+    headings = [c["text"] for c in result["clauses"] if c["heading_only"]]
+    assert headings == ["Article 1 Payment Terms", "Article 2 Ending"]
+    assert result["total_clauses"] == 3
+    assert {c["heading"] for c in result["completed"]} == {"1.1 Rent", "1.2 Deposit", "2.1 Notice"}
+    assert all("Article 1 Payment Terms" not in prompt.split("Clauses:")[1] for prompt in with_fake_groq.prompts)

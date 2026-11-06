@@ -3,7 +3,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-from groq import APIConnectionError, AsyncGroq, InternalServerError, RateLimitError
+from groq import APIConnectionError, AsyncGroq, BadRequestError, InternalServerError, RateLimitError
 
 from app.config import settings
 from app.constants import (
@@ -21,7 +21,16 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 # APIConnectionError includes APITimeoutError
-RETRYABLE_ERRORS = (RateLimitError, APIConnectionError, InternalServerError)
+RETRYABLE_ERRORS = (RateLimitError, APIConnectionError, InternalServerError, BadRequestError)
+
+
+def _is_retryable(error: Exception) -> bool:
+    """A 400 is normally our mistake and retrying won't help — except Groq's
+    json_validate_failed, which means the model produced invalid JSON this time."""
+    if isinstance(error, BadRequestError):
+        body = error.body if isinstance(error.body, dict) else {}
+        return (body.get("error", body) or {}).get("code") == "json_validate_failed"
+    return True
 
 CallFn = Callable[[str], Awaitable[str]]
 
@@ -101,6 +110,8 @@ class GroqClient:
                 try:
                     return await self._call_fn(prompt)
                 except RETRYABLE_ERRORS as e:
+                    if not _is_retryable(e):
+                        raise
                     if isinstance(e, RateLimitError):
                         rate_limits += 1
                         attempt, limit = rate_limits, self._max_rate_limit_retries

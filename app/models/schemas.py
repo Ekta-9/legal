@@ -54,6 +54,7 @@ class ClauseOutline(BaseModel):
     heading: str | None = None
     text: str
     context: ClauseContext | None = None  # shown beside the clause, so the reader sees what the model was given
+    heading_only: bool = False  # a title like "Article 2 Term of Agreement": shown as a heading, never sent to the model
 
 
 class JobStatus(str, enum.Enum):

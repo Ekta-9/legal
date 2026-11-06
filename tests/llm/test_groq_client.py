@@ -181,3 +181,38 @@ async def test_rate_limits_have_a_larger_budget_than_other_failures():
     assert GROQ_MAX_RATE_LIMIT_RETRIES > GROQ_MAX_RETRIES + 2
     client = GroqClient(call_fn=call_fn, sleep_fn=fake_sleep)
     assert await client.complete("prompt") == "ok"
+
+
+@pytest.mark.asyncio
+async def test_invalid_json_from_the_model_is_retried_but_other_bad_requests_are_not():
+    from groq import BadRequestError
+
+    def bad_request(code):
+        return _error_with_status(BadRequestError, 400) if code is None else BadRequestError(
+            "error",
+            response=httpx.Response(400, request=httpx.Request("POST", "https://api.groq.com")),
+            body={"error": {"code": code, "message": "Failed to validate JSON"}},
+        )
+
+    async def no_sleep(delay: float) -> None:
+        return None
+
+    errors = [bad_request("json_validate_failed")]
+
+    async def flaky(prompt: str) -> str:
+        if errors:
+            raise errors.pop(0)
+        return "ok"
+
+    assert await GroqClient(call_fn=flaky, sleep_fn=no_sleep).complete("prompt") == "ok"
+
+    attempts = 0
+
+    async def always_bad(prompt: str) -> str:
+        nonlocal attempts
+        attempts += 1
+        raise bad_request("model_not_found")
+
+    with pytest.raises(BadRequestError):
+        await GroqClient(call_fn=always_bad, sleep_fn=no_sleep).complete("prompt")
+    assert attempts == 1

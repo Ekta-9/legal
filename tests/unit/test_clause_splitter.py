@@ -189,3 +189,21 @@ def test_real_contracts_split_along_their_own_numbering(name, expected):
     text = next(d["text"] for d in load_documents() if d["name"] == name)
     assert _labels(text) == expected
     assert " ".join(c.text for c in split_clauses(text)).split() == text.split()
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("4    REVENUES", True),
+        ("Article 2 Term of Agreement", True),
+        ("14. Counterparts", True),
+        ("1. DEFINITIONS AND INTERPRETATION", True),
+        ("5. Rent is due monthly", False),
+        ("4.4 All Fees are exclusive of GST.", False),
+        ("1. Rent\nPay monthly.", False),
+    ],
+)
+def test_heading_only(text, expected):
+    from app.parsing.clause_splitter import is_heading_only
+
+    assert is_heading_only(text) is expected

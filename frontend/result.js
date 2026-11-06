@@ -106,10 +106,10 @@ async function poll() {
 
 function render(data) {
   const outline = data.clauses || [];
-  if (outline.length > 0 && totalClauses === 0) {
-    totalClauses = outline.length;
+  if (outline.length > 0 && rowsById.size === 0) {
+    totalClauses = outline.filter((clause) => !clause.heading_only).length;
     outline.forEach((clause, index) => {
-      const row = buildRow(clause, index);
+      const row = clause.heading_only ? buildHeadingRow(clause, index) : buildRow(clause, index);
       rowsById.set(clause.id, row);
       clausesEl.appendChild(row);
     });
@@ -211,6 +211,15 @@ function fillContext(container, context) {
     details.appendChild(el("p", "", text));
     container.appendChild(details);
   }
+}
+
+// A title like "Article 2 Term of Agreement": nothing to simplify, never sent to the model
+function buildHeadingRow(clause, index) {
+  const label = clauseLabel(clause.heading, index);
+  const row = el("div", "clause is-heading");
+  row.appendChild(el("div", "clause-idx", label));
+  row.appendChild(el("h2", "clause-title", clause.text.replace(/\s+/g, " ")));
+  return row;
 }
 
 function rowFor(clause) {
