@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from typing import Protocol
 
@@ -14,6 +13,7 @@ from app.models.schemas import ClauseOutline, GlossaryMatch, JobStatus, Simplifi
 from app.parsing.clause_splitter import is_heading_only, split_clauses
 from app.parsing.extract import ExtractionError, extract
 from app.rag.document_context import attach_context
+from app.rag.glossary_store import GlossaryStore
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +62,6 @@ def set_cache_store(store: ClauseCache | None) -> None:
 def get_glossary_store() -> GlossarySearch:
     global _glossary_store
     if _glossary_store is None:
-        from app.rag.glossary_store import GlossaryStore  # lazy: avoid paying the torch import cost unless glossary is actually used
-
         _glossary_store = GlossaryStore()
     return _glossary_store
 
@@ -150,8 +148,7 @@ async def _process_document(job_id: str, filename: str, content: bytes) -> None:
         enriched = simplified
         if simplified:
             try:
-                # embedding is CPU-bound (and the first call loads the model), so keep it off the event loop
-                matches = await asyncio.to_thread(_glossary_matches, [s.original for s in simplified])
+                matches = _glossary_matches([s.original for s in simplified])
                 enriched = [s.model_copy(update={"glossary_matches": m}) for s, m in zip(simplified, matches)]
             except Exception:
                 # glossary terms are a display extra; show the simplified clauses without them

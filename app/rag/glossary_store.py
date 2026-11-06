@@ -1,44 +1,60 @@
 import json
+import re
 from pathlib import Path
 
-import numpy as np
-
-from app.rag.embeddings import embed_texts
-
 DEFAULT_GLOSSARY_PATH = Path(__file__).resolve().parent / "glossary_data" / "glossary.json"
-DEFAULT_TOP_K = 3
-DEFAULT_THRESHOLD = 0.35
+DEFAULT_TOP_K = 5
+
+# sentence ends, and blank lines — patterns like "terminate ... breach" must hold within one sentence
+_SENTENCE_BREAK_RE = re.compile(r"(?<=[.;!?])\s+|\n\s*\n")
 
 
 class GlossaryStore:
-    """Numpy-cosine term lookup over a curated glossary — no vector DB.
-    A few hundred entries is nothing; embeddings for the whole glossary are
-    computed once at construction and held in memory.
+    """Shows a glossary term only when the clause actually contains it: the
+    term's word family ("indemnify" -> Indemnification) or the concept it
+    names ("may terminate ... by giving notice" -> Termination for
+    Convenience), from the hand-written `patterns` of each entry in
+    glossary.json, matched within single sentences. A more specific term
+    hides the general one it implies (`suppresses`).
+
+    This replaced an embedding-similarity search, which suggested terms that
+    merely sound related ("Statute of Limitations" for a payment clause):
+    precision 49% / recall 46% on tests/eval/glossary_gold.json.
     """
 
     def __init__(self, glossary_path: str | Path = DEFAULT_GLOSSARY_PATH):
         entries = json.loads(Path(glossary_path).read_text(encoding="utf-8"))
-        self._terms = [e["term"] for e in entries]
-        self._definitions = [e["definition"] for e in entries]
-        corpus_texts = [f"{term}: {definition}" for term, definition in zip(self._terms, self._definitions)]
-        self._embeddings = embed_texts(corpus_texts)
+        self._entries = [
+            {
+                "term": e["term"],
+                "definition": e["definition"],
+                "patterns": [re.compile(p, re.IGNORECASE | re.DOTALL) for p in e.get("patterns", [])],
+                "suppresses": set(e.get("suppresses", [])),
+            }
+            for e in entries
+        ]
 
-    def search(
-        self, text: str, top_k: int = DEFAULT_TOP_K, threshold: float = DEFAULT_THRESHOLD
-    ) -> list[dict]:
-        if not text.strip() or len(self._terms) == 0:
-            return []
+    def search(self, text: str, top_k: int = DEFAULT_TOP_K) -> list[dict]:
+        sentences = [s for s in _SENTENCE_BREAK_RE.split(text) if s.strip()]
+        found: list[tuple[int, dict]] = []
+        for entry in self._entries:
+            position = self._first_match(entry["patterns"], sentences)
+            if position is not None:
+                found.append((position, entry))
 
-        query_embedding = embed_texts([text])[0]
-        scores = self._embeddings @ query_embedding  # unit vectors -> dot product == cosine similarity
+        suppressed = {term for _, entry in found for term in entry["suppresses"]}
+        found = [(position, entry) for position, entry in found if entry["term"] not in suppressed]
+        found.sort(key=lambda item: item[0])  # in the order the clause raises them
+        return [{"term": e["term"], "definition": e["definition"], "score": 1.0} for _, e in found[:top_k]]
 
-        top_indices = np.argsort(-scores)[:top_k]
-        results = []
-        for idx in top_indices:
-            score = float(scores[idx])
-            if score < threshold:
-                continue
-            results.append(
-                {"term": self._terms[idx], "definition": self._definitions[idx], "score": round(score, 3)}
-            )
-        return results
+    @staticmethod
+    def _first_match(patterns: list[re.Pattern], sentences: list[str]) -> int | None:
+        offset = 0
+        best = None
+        for sentence in sentences:
+            for pattern in patterns:
+                match = pattern.search(sentence)
+                if match and (best is None or offset + match.start() < best):
+                    best = offset + match.start()
+            offset += len(sentence) + 1
+        return best

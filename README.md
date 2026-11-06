@@ -12,7 +12,8 @@ Upload a legal contract and get each clause rewritten in plain English, shown be
 - **Plain-English rewrite** of every clause via Groq (`openai/gpt-oss-20b` by default; set `GROQ_MODEL=openai/gpt-oss-120b` for the larger model, which kept meaning better on hard clauses in `tests/eval` but has much lower free-tier rate limits). The model also reports when it is unsure, and those clauses are marked "model unsure" (the model's own judgement, not an independent check).
 - **Numbers check**: every amount, date, deadline and section number in the original must also appear in the plain version. This is checked in code, not by the model. A clause that loses one is retried once, then marked with the missing numbers.
 - **Nothing silently disappears**: a clause the model fails to return is retried once, then shown as "not simplified" with its original text.
-- **Readability score** (Flesch-Kincaid grade, before → after) and glossary terms per clause.
+- **Readability score** (Flesch-Kincaid grade, before → after) per clause.
+- **Glossary**: plain definitions of general legal terms (indemnification, force majeure, termination for cause, …) shown only when the clause actually contains the term or the concept it names — matched with hand-written patterns, no AI.
 - **Hindi / Marathi translation (experimental)** of the plain-English text with a local NLLB model. It is slow on CPU and has not been reviewed for legal accuracy.
 
 **Not supported:** scanned PDFs (no OCR), and headers, footers and footnotes in DOCX files. PDF page numbers and repeated page headers and footers are removed, but a footnote or a one-off note in the page margin can still end up inside a clause.
@@ -51,7 +52,7 @@ uvicorn app.main:app --reload
 
 Open <http://127.0.0.1:8000>. The API and the frontend are served from the same address.
 
-On first use, the glossary embedding model (~90 MB) and, if you choose a translation, the NLLB model (~2.4 GB) are downloaded from Hugging Face.
+If you choose a translation, the NLLB model (~2.4 GB) is downloaded from Hugging Face on first use.
 
 ## Tests
 
@@ -65,6 +66,7 @@ To score document-context retrieval against hand-labelled answers (offline, also
 
 ```bash
 python -m tests.eval.rag_eval --details
+python -m tests.eval.glossary_eval --details   # glossary term matching
 ```
 
 To compare Groq models on the hand-written evaluation contracts (uses your quota):
