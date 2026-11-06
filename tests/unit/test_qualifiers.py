@@ -61,3 +61,27 @@ def test_if_capable_of_remedy_must_survive():
     dropped = "Either party can end it if the other seriously breaches it and does not fix it within 30 days."
     assert lost_qualifiers(original, kept) == []
     assert lost_qualifiers(original, dropped) == ['the condition ("if capable of remedy")']
+
+
+def test_written_requirement_must_survive():
+    original = "Neither party may assign this Agreement without the prior written consent of the other party."
+    assert lost_qualifiers(original, "Neither party can transfer it without the other's written permission.") == []
+    assert lost_qualifiers(original, "Neither party can transfer it unless the other agrees in writing.") == []
+    assert lost_qualifiers(original, "Neither party can transfer it without the other's consent.") == [
+        "the requirement that it be in writing"
+    ]
+
+
+def test_third_party_claim_limit_must_survive():
+    original = "The Supplier shall indemnify the Customer against all Losses arising from any third-party claim."
+    assert lost_qualifiers(original, "The Supplier must cover the Customer's losses if someone else sues it.") == []
+    assert lost_qualifiers(original, "The Supplier must cover the Customer's losses from any third‑party claim.") == []
+    assert lost_qualifiers(original, "The Supplier must cover the Customer's losses from a claim.") == [
+        "the limit to third-party claims"
+    ]
+
+
+def test_disclosing_to_a_third_party_is_not_a_claim():
+    # "anyone" is stricter than "any third party", so the rewrite is faithful
+    original = "The Employee shall not disclose any Confidential Information to any third party."
+    assert lost_qualifiers(original, "The Employee must not share Confidential Information with anyone.") == []

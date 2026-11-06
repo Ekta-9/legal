@@ -51,6 +51,25 @@ _QUALIFIERS = [
         _words(r"sole\s+and\s+exclusive", r"sole\s+remedy", r"exclusive\s+remedy", r"exclusive\s+jurisdiction"),
         _words("only", "sole", r"exclusive\w*", r"nothing\s+else", r"no\s+other"),
     ),
+    _Qualifier(
+        # "prior written consent" shortened to "consent" makes a phone call enough
+        "the requirement that it be in writing",
+        _words(r"in\s+writing", r"written\s+(?:consent|notice|approval|permission|agreement|request)"),
+        _words(r"writ\w*", "email", r"e-mail", "letter", "signed"),
+    ),
+    _Qualifier(
+        # "any third-party claim" shortened to "a claim" widens what the clause covers. Only claims:
+        # "disclose to any third party" rewritten as "share with anyone" is stricter, not wrong
+        "the limit to third-party claims",
+        _words(
+            r"third[\s\-‐-―]+part(?:y|ies)(?:'s)?\s+(?:claims?|actions?|suits?|proceedings?)",
+            r"(?:claims?|actions?|suits?|proceedings?)\s+(?:\w+\s+){0,3}(?:by|of|from)\s+(?:a|any)\s+third[\s\-‐-―]+part(?:y|ies)",
+        ),
+        _words(
+            r"third[\s\-‐-―]+part\w*", "outsiders?", r"someone\s+else", r"another\s+person", r"other\s+people",
+            r"someone\s+outside", r"anyone\s+outside", r"not\s+a\s+party",
+        ),
+    ),
 ]
 
 
