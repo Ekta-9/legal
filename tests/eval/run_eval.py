@@ -15,6 +15,7 @@ Scores are coarse checks, not a judgement of legal accuracy:
   context    concepts that need the retrieved context (eval_set.json "expect_context"): definitions, party names
   ambiguous  of the clauses marked expect_unsure (genuinely ambiguous), how many were flagged
   grade      mean Flesch-Kincaid grade, original -> plain (lower is easier)
+  legalese   lawyer's words with a plain equivalent (shall, hereinafter, deemed...), original -> plain
 """
 
 import argparse
@@ -40,6 +41,23 @@ def _plain(text: str) -> str:
     return re.sub(r"[^\S\n]", " ", text).lower()
 
 
+# Lawyer's wording a plain version has no reason to keep: each has an everyday
+# equivalent with the same meaning. Terms of art that do carry legal meaning
+# (indemnify, force majeure, negligence) are not counted; the prompt asks for
+# those to be explained, not removed.
+LEGALESE_RE = re.compile(
+    r"\b(?:shall|hereinafter|herein|hereof|hereto|hereby|hereunder|thereof|therein|thereto|thereunder|whereas|"
+    r"notwithstanding|pursuant|aforesaid|aforementioned|deemed|forthwith|witnesseth|prior\s+to|provided\s+that|"
+    r"provided,?\s+however|in\s+the\s+event|inter\s+alia|mutatis\s+mutandis|demised|aggregate|preceding|"
+    r"in\s+respect\s+of|with\s+respect\s+to|save\s+as|in\s+lieu|vis-[aà]-vis|undertakes?|executed|jointly\s+and\s+severally)\b",
+    re.IGNORECASE,
+)
+
+
+def legalese_count(text: str) -> int:
+    return len(LEGALESE_RE.findall(_plain(text)))
+
+
 def concept_misses(simplified: str, concepts: list[list[str]]) -> list[str]:
     text = _plain(simplified)
     return [" / ".join(words) for words in concepts if not any(w.lower() in text for w in words)]
@@ -61,6 +79,7 @@ async def evaluate(model: str, documents: list[dict], run: int = 1) -> dict:
                 {
                     "document": document["name"],
                     "heading": clause.heading,
+                    "original": clause.text,
                     "returned": result is not None,
                     "simplified": result.simplified if result else "",
                     "missing_numbers": result.missing_numbers if result else [],
@@ -98,6 +117,10 @@ def summarize(run: dict) -> dict:
             f"{statistics.mean(r['grade_after'] for r in graded):.1f}"
             if graded else "-"
         ),
+        "legalese": (
+            f"{sum(legalese_count(r['original']) for r in returned)} -> "
+            f"{sum(legalese_count(r['simplified']) for r in returned)}"
+        ),
         "seconds": str(run["seconds"]),
     }
 
@@ -121,7 +144,7 @@ def _table(rows: list[dict], columns: list[str]) -> None:
 def print_report(runs: list[dict]) -> None:
     _table(
         [summarize(run) for run in runs],
-        ["model", "run", "returned", "numbers", "concepts", "context", "unsure", "ambiguous", "grade", "seconds"],
+        ["model", "run", "returned", "numbers", "concepts", "context", "unsure", "ambiguous", "grade", "legalese", "seconds"],
     )
     print("\nConcepts kept, per document:")
     by_document = [_concepts_by_document(run) for run in runs]
@@ -157,9 +180,9 @@ async def main() -> None:
 
     documents = json.loads(EVAL_SET.read_text(encoding="utf-8"))["documents"]
     runs = [await evaluate(model, documents, run) for model in args.model for run in range(1, args.runs + 1)]
-    print_report(runs)
-    if args.out:
+    if args.out:  # before printing, so a console that cannot show a character does not lose the run
         args.out.write_text(json.dumps(runs, indent=2, ensure_ascii=False), encoding="utf-8")
+    print_report(runs)
 
 
 if __name__ == "__main__":

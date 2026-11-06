@@ -170,7 +170,8 @@
             "does not cover",
             "unless",
             "isn't responsible",
-            "is not responsible"
+            "is not responsible",
+            "not have to"
           ]
         ],
         "10. Governing Law": [
@@ -407,7 +408,8 @@
           ],
           [
             "writing",
-            "written"
+            "written",
+            "writes"
           ],
           [
             "reason",
@@ -592,7 +594,9 @@
             "not liable",
             "exclud",
             "not if",
-            "other than"
+            "other than",
+            "does not apply",
+            "doesn't apply"
           ]
         ],
         "8. Confidentiality": [
