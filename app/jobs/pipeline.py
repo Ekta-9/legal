@@ -11,7 +11,7 @@ from app.jobs.manager import job_manager
 from app.llm.groq_client import GroqClient, is_daily_limit
 from app.llm.simplify import ClauseCache, CompletesPrompts, simplify_clauses
 from app.llm.verify import make_verifier
-from app.models.schemas import ClauseOutline, GlossaryMatch, JobStatus, SimplifiedClause
+from app.models.schemas import ClauseOutline, GlossaryMatch, JobStatus, Reader, SimplifiedClause
 from app.parsing.clause_splitter import is_heading_only, is_signature_block, split_clauses
 from app.parsing.extract import ExtractionError, extract
 from app.rag.document_context import attach_context
@@ -112,16 +112,16 @@ def _glossary_matches(texts: list[str]) -> list[list[GlossaryMatch]]:
     return [[GlossaryMatch(**match) for match in store.search(text)] for text in texts]
 
 
-async def process_document(job_id: str, filename: str, content: bytes) -> None:
+async def process_document(job_id: str, filename: str, content: bytes, reader: Reader | None = None) -> None:
     try:
-        await _process_document(job_id, filename, content)
+        await _process_document(job_id, filename, content, reader)
     except Exception:
         # last line of defence: an unexpected error must end the job, never leave it "processing" forever
         logger.exception("Job %s failed unexpectedly", job_id)
         job_manager.fail(job_id, GENERIC_FAILURE)
 
 
-async def _process_document(job_id: str, filename: str, content: bytes) -> None:
+async def _process_document(job_id: str, filename: str, content: bytes, reader: Reader | None = None) -> None:
     job_manager.set_status(job_id, JobStatus.PROCESSING)
 
     try:
@@ -202,8 +202,9 @@ async def _process_document(job_id: str, filename: str, content: bytes) -> None:
         client,
         on_batch_complete=on_batch_complete,
         cache=get_cache_store(),
-        verify_fn=make_verifier(client),
+        verify_fn=make_verifier(client, reader),
         on_batch_error=errors.append,
+        reader=reader,
     )
 
     if errors and not simplified:

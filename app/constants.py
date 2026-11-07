@@ -25,4 +25,5 @@ MAX_PASTE_CHARS = 200_000
 MAX_PDF_PAGES = 100
 MAX_CLAUSES = 300
 MAX_TRANSLATE_CHARS = 5_000
+MAX_READER_FIELD_CHARS = 80  # document type / role typed on the upload form
 SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".txt")

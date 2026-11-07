@@ -10,7 +10,7 @@ from app.constants import DROPPED_MAX_RETRIES
 from app.llm.facts import missing_numbers
 from app.llm.qualifiers import lost_qualifiers
 from app.llm.groq_client import batch_items
-from app.models.schemas import Clause, ReadabilityScore, SimplifiedClause
+from app.models.schemas import Clause, ReadabilityScore, Reader, SimplifiedClause
 from app.scoring.readability import readability_delta
 
 logger = logging.getLogger(__name__)
@@ -29,14 +29,18 @@ class ClauseCache(Protocol):
     def put(self, text: str, simplified: str, self_check: bool, heading: str | None = None) -> None: ...
 
 
-def cache_key(clause: Clause) -> str:
+def cache_key(clause: Clause, reader: Reader | None = None) -> str:
     """The same clause text can simplify differently depending on what its
-    defined terms and parties mean in a given contract, so retrieved context
-    is part of the cache identity. Context-free clauses keep the plain text key.
+    defined terms and parties mean in a given contract, and on whose side it is
+    written for, so retrieved context and the reader are part of the cache
+    identity. Without either, the key is the plain text.
     """
-    if clause.context is None:
-        return clause.text
-    return f"{clause.text}\n[context]{json.dumps(clause.context.model_dump(), sort_keys=True)}"
+    key = clause.text
+    if clause.context is not None:
+        key += f"\n[context]{json.dumps(clause.context.model_dump(), sort_keys=True)}"
+    if reader is not None:
+        key += f"\n[reader]{json.dumps(reader.model_dump(), sort_keys=True)}"
+    return key
 
 
 def _prompt_item(clause: Clause, problem: str | None = None) -> dict:
@@ -48,9 +52,29 @@ def _prompt_item(clause: Clause, problem: str | None = None) -> dict:
     return item
 
 
-def build_prompt(batch: list[Clause], problems: dict[str, str] | None = None) -> str:
+def _reader_note(reader: Reader | None) -> str:
+    """Written for the reader's side. The values are the user's own words, so they
+    go in as JSON data, never as instructions."""
+    if reader is None or not (reader.role or reader.document_type):
+        return ""
+    data = json.dumps(reader.model_dump(exclude_none=True), ensure_ascii=False)
+    if not reader.role:
+        return f"The reader told us what kind of contract this is: {data}.\n"
+    return (
+        f"The reader told us who they are in this contract: {data}.\n"
+        "Write each clause for them: call them \"you\" and name their party once, e.g. \"You (the Tenant) "
+        "must ...\". The contract may use a different word for their party (Licensee for a tenant, the "
+        "Company for an employer); work out which party is theirs from the clauses and the context. A clause "
+        "about the other side stays about the other side (\"The Owner must ...\"). If you cannot tell which "
+        "party is theirs, do not guess: name the parties as the contract does. Writing \"you\" must never "
+        "change who has to do what.\n"
+    )
+
+
+def build_prompt(batch: list[Clause], problems: dict[str, str] | None = None, reader: Reader | None = None) -> str:
     """`problems` (clause id -> what the previous attempt got wrong) is only
-    passed on a retry, so a first attempt's prompt never changes because of it."""
+    passed on a retry, so a first attempt's prompt never changes because of it.
+    `reader` (the role chosen on the upload form) is only passed when one was chosen."""
     problems = problems or {}
     items = [_prompt_item(c, problems.get(c.id)) for c in batch]
     retry_note = (
@@ -87,6 +111,7 @@ def build_prompt(batch: list[Clause], problems: dict[str, str] | None = None) ->
         "Shorter must never mean less. Keep every condition, exception, time limit and override, "
         "and every word that narrows who or what is covered or how something must be done "
         "(for example third-party, written, lawfully, reasonable, other than through a breach).\n"
+        f"{_reader_note(reader)}"
         "Set self_check to true if you are not fully confident the simplification is "
         "faithful to the original, or if the clause is ambiguous or risky to simplify.\n\n"
         f"{retry_note}"
@@ -172,6 +197,7 @@ async def simplify_clauses(
     cache: ClauseCache | None = None,
     verify_fn: VerifyFn | None = None,
     on_batch_error: ErrorCallback | None = None,
+    reader: Reader | None = None,
 ) -> tuple[list[SimplifiedClause], list[str]]:
     """Batches clauses, sends each batch to `client`, and merges results.
     Concurrency across batches is bounded by the client's own semaphore.
@@ -198,7 +224,7 @@ async def simplify_clauses(
     to_process: list[Clause] = []
     cached_simplified: list[SimplifiedClause] = []
     for clause in clauses:
-        hit = cache.get(cache_key(clause)) if cache is not None else None
+        hit = cache.get(cache_key(clause, reader)) if cache is not None else None
         if hit is not None:
             cached_simplified.append(
                 SimplifiedClause(
@@ -231,7 +257,7 @@ async def simplify_clauses(
 
     async def simplify_batch(batch: list[Clause]) -> tuple[list[SimplifiedClause], list[str]]:
         try:
-            raw = await client.complete(build_prompt(batch))
+            raw = await client.complete(build_prompt(batch, reader=reader))
         except Exception as e:
             if not _request_too_large(e) or len(batch) == 1:
                 raise
@@ -246,7 +272,7 @@ async def simplify_clauses(
             if not dropped:
                 break
             missing = [c for c in batch if c.id in set(dropped)]
-            recovered, dropped = parse_batch_response(await client.complete(build_prompt(missing)), missing)
+            recovered, dropped = parse_batch_response(await client.complete(build_prompt(missing, reader=reader)), missing)
             simplified.extend(recovered)
         if verify_fn is not None:
             simplified = await verify_fn(simplified, batch)
@@ -266,7 +292,7 @@ async def simplify_clauses(
             by_id = {c.id: c for c in batch}
             for s in simplified:
                 if not s.self_check and not s.missing_numbers and not s.lost_qualifiers:
-                    cache.put(cache_key(by_id[s.id]), s.simplified, s.self_check, s.heading)
+                    cache.put(cache_key(by_id[s.id], reader), s.simplified, s.self_check, s.heading)
         await report(simplified, dropped)
         return simplified, dropped
 

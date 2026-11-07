@@ -108,7 +108,19 @@ async function poll() {
   }
 }
 
+// "Written for: Tenant · Rental / lease agreement", as chosen on the upload form
+function showReader(reader) {
+  const note = document.getElementById("reader-note");
+  if (!reader || !note.hidden || !(reader.role || reader.document_type)) return;
+  note.append(reader.role ? "Written for: " : "Document: ");
+  if (reader.role) note.appendChild(el("strong", "", reader.role));
+  if (reader.role && reader.document_type) note.append(" · ");
+  if (reader.document_type) note.append(reader.document_type);
+  note.hidden = false;
+}
+
 function render(data) {
+  showReader(data.reader);
   const outline = data.clauses || [];
   if (outline.length > 0 && rowsById.size === 0) {
     totalClauses = outline.filter((clause) => !clause.heading_only && !clause.signature_block).length;

@@ -30,7 +30,32 @@
 
     <form id="upload-form" class="sheet" novalidate>
       <div class="sheet-row">
-        <p class="sheet-label"><span class="idx">01</span>Document</p>
+        <p class="sheet-label"><span class="idx">01</span>Contract</p>
+        <div>
+          <div class="picker-row">
+            <div class="picker">
+              <label for="doc-type-select" class="picker-label mono">Type of document</label>
+              <select id="doc-type-select">
+                <option value="">Not specified</option>
+              </select>
+              <label for="doc-type-other" class="sr-only">Type of document</label>
+              <input type="text" id="doc-type-other" class="other-input" maxlength="80" placeholder="e.g. Franchise agreement" hidden />
+            </div>
+            <div class="picker">
+              <label for="role-select" class="picker-label mono">Your role</label>
+              <select id="role-select" disabled>
+                <option value="">Choose the document type first</option>
+              </select>
+              <label for="role-other" class="sr-only">Your role</label>
+              <input type="text" id="role-other" class="other-input" maxlength="80" placeholder="e.g. Guarantor" hidden />
+            </div>
+          </div>
+          <p class="sheet-hint">Optional. With your role, the plain version is written for you: "You (the Tenant) must pay ...". Who has to do what is never changed.</p>
+        </div>
+      </div>
+
+      <div class="sheet-row">
+        <p class="sheet-label"><span class="idx">02</span>Document</p>
         <div>
           <fieldset class="segmented">
             <legend class="sr-only">How to provide the document</legend>
@@ -55,7 +80,7 @@
       </div>
 
       <div class="sheet-row">
-        <p class="sheet-label"><span class="idx">02</span>Language</p>
+        <p class="sheet-label"><span class="idx">03</span>Language</p>
         <div>
           <label for="lang-select" class="sr-only">Translate the plain-English version into</label>
           <select id="lang-select">
@@ -68,7 +93,7 @@
       </div>
 
       <div class="sheet-row">
-        <p class="sheet-label"><span class="idx">03</span>Simplify</p>
+        <p class="sheet-label"><span class="idx">04</span>Simplify</p>
         <div class="run-row">
           <button type="submit" class="btn" id="submit-btn">Simplify document <span class="arrow" aria-hidden="true">&rarr;</span></button>
           <p id="status" class="status mono" role="status" aria-live="polite"></p>

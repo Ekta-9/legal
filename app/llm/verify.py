@@ -1,5 +1,5 @@
 from app.llm.simplify import CompletesPrompts, build_prompt, parse_batch_response
-from app.models.schemas import Clause, SimplifiedClause
+from app.models.schemas import Clause, Reader, SimplifiedClause
 
 
 def _problem_count(result: SimplifiedClause) -> int:
@@ -20,6 +20,7 @@ async def retry_flagged_clauses(
     simplified: list[SimplifiedClause],
     batch: list[Clause],
     client: CompletesPrompts,
+    reader: Reader | None = None,
 ) -> list[SimplifiedClause]:
     """PLANNING.md's verification-failure rule: a clause that is flagged —
     by the model's own self_check, or by the code checks finding a number or
@@ -39,7 +40,7 @@ async def retry_flagged_clauses(
         return simplified
 
     problems = {clause_id: _describe(s) for clause_id, s in flagged.items() if _describe(s)}
-    raw = await client.complete(build_prompt(to_retry, problems))
+    raw = await client.complete(build_prompt(to_retry, problems, reader))
     retried, _dropped = parse_batch_response(raw, to_retry)
     retried_by_id = {r.id: r for r in retried}
 
@@ -52,7 +53,7 @@ async def retry_flagged_clauses(
     return [better(s) for s in simplified]
 
 
-def make_verifier(client: CompletesPrompts):
+def make_verifier(client: CompletesPrompts, reader: Reader | None = None):
     """Binds a client into a `verify_fn` compatible with
     `simplify_clauses(..., verify_fn=...)`.
     """
@@ -60,6 +61,6 @@ def make_verifier(client: CompletesPrompts):
     async def verify_fn(
         simplified: list[SimplifiedClause], batch: list[Clause]
     ) -> list[SimplifiedClause]:
-        return await retry_flagged_clauses(simplified, batch, client)
+        return await retry_flagged_clauses(simplified, batch, client, reader)
 
     return verify_fn

@@ -1,9 +1,9 @@
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 
-from app.constants import MAX_PASTE_CHARS, MAX_UPLOAD_BYTES, SUPPORTED_EXTENSIONS
+from app.constants import MAX_PASTE_CHARS, MAX_READER_FIELD_CHARS, MAX_UPLOAD_BYTES, SUPPORTED_EXTENSIONS
 from app.jobs.manager import job_manager
 from app.jobs.pipeline import process_document
-from app.models.schemas import UploadResponse
+from app.models.schemas import Reader, UploadResponse
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -25,12 +25,28 @@ async def _read_capped(file: UploadFile) -> bytes:
     return b"".join(chunks)
 
 
+def _reader_field(value: str | None) -> str | None:
+    """A document type or role from the form, typed or chosen: one short line of text."""
+    if value is None:
+        return None
+    value = " ".join("".join(ch if ch.isprintable() else " " for ch in value).split())
+    if len(value) > MAX_READER_FIELD_CHARS:
+        raise HTTPException(status_code=400, detail=f"document type and role are limited to {MAX_READER_FIELD_CHARS} characters")
+    return value or None
+
+
 @router.post("", response_model=UploadResponse)
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile | None = File(None),
     text: str | None = Form(None),
+    document_type: str | None = Form(None),
+    role: str | None = Form(None),
 ) -> UploadResponse:
+    reader = Reader(document_type=_reader_field(document_type), role=_reader_field(role))
+    if reader.document_type is None and reader.role is None:
+        reader = None
+
     if file is not None:
         filename = file.filename or "upload.txt"
         if not filename.lower().endswith(SUPPORTED_EXTENSIONS):
@@ -49,6 +65,6 @@ async def upload_document(
     if not content:
         raise HTTPException(status_code=400, detail="uploaded content is empty")
 
-    job = job_manager.create()
-    background_tasks.add_task(process_document, job.id, filename, content)
+    job = job_manager.create(reader)
+    background_tasks.add_task(process_document, job.id, filename, content, reader)
     return UploadResponse(job_id=job.id)

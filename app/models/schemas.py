@@ -13,6 +13,14 @@ class ClauseContext(BaseModel):
     referenced_sections: dict[str, str] = {}  # section number -> that section's text
 
 
+class Reader(BaseModel):
+    """Who is reading: the kind of contract and their side of it, as chosen on the
+    upload form. The plain version is written for that side ("You (the Tenant) must ...")."""
+
+    document_type: str | None = None
+    role: str | None = None
+
+
 class Clause(BaseModel):
     id: str
     heading: str | None = None
@@ -83,6 +91,7 @@ class JobResultResponse(BaseModel):
     clauses: list[ClauseOutline] = []
     completed: list[SimplifiedClause]
     error: str | None = None
+    reader: Reader | None = None
 
 
 class TranslateRequest(BaseModel):

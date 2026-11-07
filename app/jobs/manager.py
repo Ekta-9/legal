@@ -1,7 +1,7 @@
 import uuid
 from dataclasses import dataclass, field
 
-from app.models.schemas import ClauseOutline, JobStatus, SimplifiedClause
+from app.models.schemas import ClauseOutline, JobStatus, Reader, SimplifiedClause
 
 
 @dataclass
@@ -12,6 +12,7 @@ class Job:
     clauses: list[ClauseOutline] = field(default_factory=list)
     completed: list[SimplifiedClause] = field(default_factory=list)
     error: str | None = None
+    reader: Reader | None = None
 
 
 class JobManager:
@@ -22,8 +23,8 @@ class JobManager:
     def __init__(self):
         self._jobs: dict[str, Job] = {}
 
-    def create(self) -> Job:
-        job = Job(id=str(uuid.uuid4()))
+    def create(self, reader: Reader | None = None) -> Job:
+        job = Job(id=str(uuid.uuid4()), reader=reader)
         self._jobs[job.id] = job
         return job
 

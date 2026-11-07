@@ -102,3 +102,30 @@ async def test_unsupported_file_type_is_rejected_at_upload(async_client, with_fa
     )
     assert response.status_code == 400
     assert "PDF, DOCX or TXT" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_document_type_and_role_reach_the_model_and_the_result(async_client, with_fake_groq):
+    upload = await async_client.post(
+        "/api/documents",
+        data={"text": "1. Rent\nThe Tenant shall pay rent.", "document_type": "Rental / lease agreement", "role": " Tenant\n"},
+    )
+    assert upload.status_code == 200
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["reader"] == {"document_type": "Rental / lease agreement", "role": "Tenant"}
+    assert '"role": "Tenant"' in with_fake_groq.prompts[0]
+
+
+@pytest.mark.asyncio
+async def test_without_a_role_nothing_changes(async_client, with_fake_groq):
+    upload = await async_client.post("/api/documents", data={"text": "1. Rent\nPay rent.", "role": "   "})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+    assert result["reader"] is None
+    assert "who they are in this contract" not in with_fake_groq.prompts[0]
+
+
+@pytest.mark.asyncio
+async def test_a_too_long_role_is_rejected(async_client, with_fake_groq):
+    response = await async_client.post("/api/documents", data={"text": "1. Rent\nPay rent.", "role": "x" * 81})
+    assert response.status_code == 400
