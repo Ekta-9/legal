@@ -60,10 +60,14 @@ _POINTER_RE = re.compile(
 # Acme Ltd, a company ... (the "Provider") / ... (hereinafter referred to as "Client") /
 # ... ("VNBJ SPA," and ...) — short markers like "twelve (12) months", "(a)" or "(Zhongshan)" may sit inside the subject
 _SUBJECT = r"(?P<subject>(?:[^()]|\([0-9a-z]{1,3}\)|\([A-Z][A-Za-z ]{1,20}\)){2,160}?)"
-_HEREIN = r"(?:[Hh]ereinafter|[Hh]erein|[Hh]ereafter)\s+(?:referred\s+to\s+as\s+|called\s+)?"
+# Indian deeds: (hereinafter jointly and severally called the "OWNER", which expression shall include ...)
+_HEREIN = (
+    r"(?:[Hh]ereinafter|[Hh]erein|[Hh]ereafter)\s+(?:(?:jointly\s+and\s+severally|collectively|together)\s+)?"
+    r"(?:referred\s+to\s+as\s+|called\s+)?"
+)
 _INLINE_RE = re.compile(
     rf"{_SUBJECT}\s*\(\s*(?:{_HEREIN})?"
-    rf"(?:[Tt]he\s+)?{_TERM}\s*(?:\)|,?\s*(?:and|or)\b)"
+    rf"(?:[Tt]he\s+)?{_TERM}\s*(?:\)|,?\s*(?:and|or)\b|,\s*which\s+expression\b)"
 )
 # Domini Social Investments LLC ("Domini" or the "Sponsor") — a second name for the same thing
 _ALIAS_RE = re.compile(
@@ -149,7 +153,8 @@ def _hereinafter_subject(subject: str) -> str:
     blocks = [b for b in blocks if b and b.lower() not in ("and", "between", "by and between")]
     if not blocks:
         return ""
-    block = re.split(r"\bbetween\b", blocks[-1], flags=re.IGNORECASE)[-1]
+    # "... of the OTHER PART. WHEREAS the Owner is the owner of Flat 504 ..., hereinafter referred to as"
+    block = re.split(r"\bbetween\b|\bWHEREAS\b", blocks[-1], flags=re.IGNORECASE)[-1]
     return re.sub(r"^[\s,]*and\b", "", block, flags=re.IGNORECASE).strip(" ,")
 
 
