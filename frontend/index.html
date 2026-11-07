@@ -16,9 +16,9 @@
   <script src="/hero.js" defer></script>
 </head>
 <body>
+  <div id="globe-bg" class="globe-bg" aria-hidden="true"></div>
   <header class="topbar">
     <a class="brand" href="/">Saral<span>_</span></a>
-    <p class="topbar-note">[ Not legal advice<span class="long"> &mdash; always verify against the original</span> ]</p>
   </header>
 
   <main>
@@ -30,7 +30,7 @@
 
     <form id="upload-form" class="sheet" novalidate>
       <div class="sheet-row">
-        <p class="sheet-label"><span class="idx">01</span>Contract</p>
+        <p class="sheet-label"><span class="doodle" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M8 4.5C13 4 18 4.3 21.5 4.6L25.5 8.8C25.7 15 25.4 21 25.8 27.4C19 27.8 13.5 27.5 7.6 27.7C7.9 20 7.5 12 8 4.5Z"/><path d="M21.5 4.6C21.3 6.3 21.6 7.7 21.4 9C22.8 8.9 24.2 9 25.5 8.8"/><path d="M11.5 12.5C15 12.2 18 12.6 21.6 12.3"/><path d="M11.4 16.6C14.5 16.4 17.5 16.8 20.4 16.5"/><path d="M11.6 23.2c1.2-2.6 2.2-2.8 2.4-.9s1.3 1.7 2.6-.6 1.4-1.2 2.2.3 1.6 1 3.3-.2"/></svg></span>Contract</p>
         <div>
           <div class="picker-row">
             <div class="picker">
@@ -55,7 +55,7 @@
       </div>
 
       <div class="sheet-row">
-        <p class="sheet-label"><span class="idx">02</span>Document</p>
+        <p class="sheet-label"><span class="doodle" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 20.5C16.2 15 15.8 10 16 5.2"/><path d="M11.2 9.6C13 8 14.6 6.3 16 5.2C17.5 6.5 19 8 20.8 9.8"/><path d="M5.5 18.5C5.3 21.5 5.6 24.6 5.6 26.7C12 27 19.5 26.6 26.5 26.9C26.4 24 26.7 21.2 26.4 18.4"/></svg></span>Document</p>
         <div>
           <fieldset class="segmented">
             <legend class="sr-only">How to provide the document</legend>
@@ -80,20 +80,20 @@
       </div>
 
       <div class="sheet-row">
-        <p class="sheet-label"><span class="idx">03</span>Language</p>
+        <p class="sheet-label"><span class="doodle" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M4.5 6.5C9 6 14 6.3 18.6 6.2C18.9 9 18.5 12 18.7 14.6C15 14.8 12 14.5 9.5 14.8L6.4 18L6.9 14.7C6 14.7 5 14.6 4.4 14.7C4.7 12 4.3 9 4.5 6.5Z"/><path d="M8.6 12.6L11.4 8.2L14.4 12.5M9.8 11C11 10.8 12 11 13.3 10.9"/><path d="M13.6 17.2C17.5 17 23 17.3 27.4 17C27.6 19.8 27.3 22.5 27.5 25C26.6 25.1 25.8 25 25.1 25.1L25.6 28.4L22.4 25.2C19.4 25 16.4 25.3 13.5 25.1C13.8 22.5 13.4 19.8 13.6 17.2Z"/><path d="M16.8 19.6C19.3 19.5 21.8 19.7 24.4 19.5M22.4 19.6C22.3 21.2 22.6 22.4 22.4 23.4M17.4 21.6c.8-1.4 2-1.4 2.3 0s-.9 1.9-1.9 1.5"/></svg></span>Language</p>
         <div>
           <label for="lang-select" class="sr-only">Translate the plain-English version into</label>
           <select id="lang-select">
             <option value="en">English only</option>
-            <option value="hi">English + Hindi (experimental)</option>
-            <option value="mr">English + Marathi (experimental)</option>
+            <option value="hi">English + Hindi</option>
+            <option value="mr">English + Marathi</option>
           </select>
-          <p class="sheet-hint">Translation is done by a local model, clause by clause. It is slow and has not been reviewed for legal accuracy. The English version is always shown too.</p>
+          <p class="sheet-hint">Choose the language you want it in. The plain English version is always shown alongside.</p>
         </div>
       </div>
 
       <div class="sheet-row">
-        <p class="sheet-label"><span class="idx">04</span>Simplify</p>
+        <p class="sheet-label"><span class="doodle" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M3.4 21.5C3.6 14 8.6 7.4 10.8 10.6S4.6 21.4 8.6 20.6 13.4 8.4 15.6 12.6 11.4 21.8 14.2 20.8 16.6 16.4 18.4 16"/><path d="M18.4 16C21.6 15.8 24.8 16.2 28.2 16"/><path d="M24.8 12.6C26 13.8 27 14.8 28.2 16C27 17.2 26 18.2 24.8 19.4"/></svg></span>Simplify</p>
         <div class="run-row">
           <button type="submit" class="btn" id="submit-btn">Simplify document <span class="arrow" aria-hidden="true">&rarr;</span></button>
           <p id="status" class="status mono" role="status" aria-live="polite"></p>
@@ -101,40 +101,55 @@
       </div>
     </form>
 
-    <ol class="steps">
+    <section class="showcase" aria-labelledby="showcase-heading">
+      <p class="eyebrow mono">&#8988; What Saral does for you &#8991;</p>
+      <h2 class="showcase-title" id="showcase-heading">Understand a contract before it binds you.</h2>
+      <ul class="showcase-grid">
       <li>
-        <span class="step-idx mono">S_01</span>
-        <p class="step-title">Extract</p>
-        <p>Text is read from your file. Scanned images need OCR first.</p>
+        <p class="showcase-kicker mono">Clarity</p>
+        <h3>Legalese, decoded</h3>
+        <p>&ldquo;Notwithstanding&rdquo;, &ldquo;hereinafter&rdquo;, &ldquo;jointly and severally&rdquo; become sentences you can read once and understand. Terms that carry legal weight are kept and explained, never quietly dropped.</p>
       </li>
       <li>
-        <span class="step-idx mono">S_02</span>
-        <p class="step-title">Split</p>
-        <p>The document is cut into clauses using its numbering.</p>
+        <p class="showcase-kicker mono">Your side</p>
+        <h3>Know what&rsquo;s on you</h3>
+        <p>Tell Saral you&rsquo;re the tenant, the employee or the borrower, and every clause speaks to you: what you must do, what you can&rsquo;t do, and what the other side owes you.</p>
       </li>
       <li>
-        <span class="step-idx mono">S_03</span>
-        <p class="step-title">Context</p>
-        <p>Each clause is paired with the parties, the definitions it uses and the sections it cites.</p>
+        <p class="showcase-kicker mono">Accuracy</p>
+        <h3>Every number stays</h3>
+        <p>Rent, deposits, deadlines, notice periods and percentages are checked against the original. If the plain version loses one, the clause is redone, and flagged if it still falls short.</p>
       </li>
       <li>
-        <span class="step-idx mono">S_04</span>
-        <p class="step-title">Simplify</p>
-        <p>An AI model rewrites each clause. Clauses it is unsure about are flagged.</p>
+        <p class="showcase-kicker mono">Fine print</p>
+        <h3>The small words that matter</h3>
+        <p>&ldquo;Notwithstanding anything else&rdquo;, &ldquo;if it can be fixed&rdquo;, &ldquo;shall not&rdquo;, &ldquo;prior written consent&rdquo;: the words that change a clause&rsquo;s meaning are checked so simpler never means softer.</p>
       </li>
-    </ol>
+      <li>
+        <p class="showcase-kicker mono">Language</p>
+        <h3>Hindi and Marathi too</h3>
+        <p>Read the plain version in Hindi or Marathi, with the English right beside it to compare.</p>
+      </li>
+      <li>
+        <p class="showcase-kicker mono">Trust</p>
+        <h3>The original is always there</h3>
+        <p>Each plain sentence sits next to the clause it came from, with the contract&rsquo;s own parties and definitions a click away. Nothing is summarised away or skipped without telling you.</p>
+      </li>
+      </ul>
+    </section>
 
     <section class="data-note" aria-labelledby="data-heading">
       <p class="sheet-label" id="data-heading"><span class="idx">!</span>Your data</p>
-      <p>The text of your document is sent to Groq's API to be simplified. Simplified clauses are cached on this server so repeat runs are faster. Results are kept in memory only until the server restarts. Don't upload documents you aren't allowed to share with a third-party service.</p>
+      <p>No sign-up and nothing to install. Your document is used only to make your plain version: its text is sent to an AI service to be simplified, and your results are cleared when the server restarts. Simplified clauses are kept in a cache on this server so repeat runs are faster. Only upload documents you&rsquo;re allowed to share.</p>
     </section>
   </main>
 
   <footer class="site-footer mono">
     <p>Saral</p>
-    <p>Automated summary &mdash; not legal advice</p>
+    <p class="footer-note">[ Not legal advice &mdash; always verify against the original ]</p>
   </footer>
 
   <script src="/script.js"></script>
+  <script src="/globe.js"></script>
 </body>
 </html>

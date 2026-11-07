@@ -120,12 +120,6 @@ a {
   color: var(--accent);
 }
 
-.topbar-note {
-  margin: 0;
-  color: var(--muted);
-  text-align: right;
-}
-
 .site-footer {
   display: flex;
   flex-wrap: wrap;
@@ -140,6 +134,31 @@ a {
 
 .site-footer p {
   margin: 0;
+}
+
+/* globe.js: a wireframe globe behind the page from the Contract section down, faint and
+   faded in at the top so it never competes with the form */
+.globe-bg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 35%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 35%);
+}
+
+.globe-bg.is-on {
+  opacity: 0.35;
+}
+
+body:has(.globe-bg) main,
+body:has(.globe-bg) .site-footer {
+  position: relative;
+  z-index: 1;
 }
 
 main {
@@ -290,8 +309,26 @@ main {
   text-transform: uppercase;
 }
 
-.sheet-label .idx,
-.step-idx {
+/* hand-drawn section marks on the upload form (index.html), in place of 01-04 */
+.sheet-label .doodle {
+  display: block;
+  width: 44px;
+  height: 44px;
+  margin: -6px 0 8px -4px;
+  color: var(--accent);
+}
+
+.doodle svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sheet-label .idx {
   color: var(--accent);
   margin-right: 10px;
 }
@@ -488,6 +525,13 @@ select:disabled {
   display: none;
 }
 
+/* upload form: softer controls everywhere except the Document section (switch, dropzone, textarea) */
+.sheet select,
+.sheet .other-input,
+.sheet .btn {
+  border-radius: 10px;
+}
+
 textarea:focus-visible,
 .other-input:focus-visible,
 select:focus-visible {
@@ -502,44 +546,93 @@ select:focus-visible {
   gap: 16px 24px;
 }
 
-/* ---------- home: how it works / data ---------- */
+/* ---------- home: what Saral does / data ---------- */
 
-.steps {
+.showcase {
+  margin: 96px 0 0;
+}
+
+.showcase-title {
+  max-width: 22ch;
+  margin: 14px 0 0;
+  font-size: clamp(28px, 3.6vw, 44px);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+}
+
+.showcase-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 72px 0 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 40px 0 0;
   padding: 0;
   list-style: none;
   border-top: 1px solid var(--line-strong);
 }
 
-.steps li {
-  padding: 20px 20px 24px 0;
+.showcase-grid li {
+  position: relative;
+  padding: 28px 28px 32px;
   border-bottom: 1px solid var(--line);
-}
-
-.steps li + li {
-  padding-left: 20px;
   border-left: 1px solid var(--line);
+  transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
 }
 
-.step-title {
-  margin: 14px 0 6px;
+.showcase-grid li:nth-child(3n + 1) {
+  border-left: 0;
+}
+
+/* hover: the card fills with the accent, its text turns to the page colour, and its edge glows */
+@media (hover: hover) {
+  .showcase-grid li:hover {
+    z-index: 1;
+    background: var(--accent);
+    color: var(--on-accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 28px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+
+  .showcase-grid li:hover .showcase-kicker,
+  .showcase-grid li:hover p:last-child {
+    color: var(--on-accent);
+  }
+}
+
+.showcase-kicker {
+  margin: 0;
+  transition: color 0.25s ease;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.showcase-grid h3 {
+  margin: 12px 0 10px;
+  font-size: 21px;
   font-weight: 600;
+  line-height: 1.25;
 }
 
-.steps p {
+.showcase-grid li p:last-child {
   margin: 0;
   color: var(--ink-2);
-  font-size: 14px;
+  font-size: 15px;
+  transition: color 0.25s ease;
 }
 
 .data-note {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   gap: 24px;
-  padding: 28px 0;
-  border-bottom: 1px solid var(--line);
+  margin-top: clamp(72px, 9vw, 120px); /* well apart from the showcase above */
+  padding: 28px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+/* "Your data" sits close above the footer */
+main:has(> .data-note:last-child) {
+  padding-bottom: 32px;
 }
 
 .data-note p {
@@ -882,34 +975,32 @@ select:focus-visible {
 /* ---------- responsive ---------- */
 
 @media (max-width: 860px) {
-  .steps {
+  .showcase-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .steps li:nth-child(3) {
-    padding-left: 0;
+  .showcase-grid li:nth-child(n) {
+    border-left: 1px solid var(--line);
+  }
+
+  .showcase-grid li:nth-child(2n + 1) {
     border-left: 0;
   }
 }
 
 @media (max-width: 720px) {
-  .topbar-note .long {
-    display: none;
-  }
-
   .sheet-row,
   .data-note {
     grid-template-columns: minmax(0, 1fr);
     gap: 14px;
   }
 
-  .steps {
+  .showcase-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .steps li,
-  .steps li + li {
-    padding-left: 0;
+  .showcase-grid li:nth-child(n) {
+    padding: 24px 20px 28px;
     border-left: 0;
   }
 
