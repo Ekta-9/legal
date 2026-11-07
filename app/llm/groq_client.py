@@ -11,6 +11,7 @@ from app.constants import (
     GROQ_MAX_BACKOFF_SECONDS,
     GROQ_MAX_COMPLETION_TOKENS,
     GROQ_MAX_RATE_LIMIT_RETRIES,
+    GROQ_MAX_RATE_LIMIT_WAIT_SECONDS,
     GROQ_MAX_RETRIES,
     GROQ_REDUCED_COMPLETION_TOKENS,
     GROQ_TEMPERATURE,
@@ -90,6 +91,14 @@ def _retry_after(error: Exception) -> float | None:
         return None
 
 
+def is_daily_limit(error: Exception) -> bool:
+    """Groq's tokens/requests per day (TPD/RPD) limit, as opposed to the
+    per-minute one: the wait is minutes to hours, not seconds."""
+    if not isinstance(error, RateLimitError):
+        return False
+    return "per day" in str(error) or (_retry_after(error) or 0.0) > GROQ_MAX_RATE_LIMIT_WAIT_SECONDS
+
+
 class GroqClient:
     """Async wrapper around the Groq SDK: concurrency ceiling + exponential
     backoff on rate limits and transient failures. The underlying call is
@@ -127,6 +136,8 @@ class GroqClient:
                 except RETRYABLE_ERRORS as e:
                     if not _is_retryable(e):
                         raise
+                    if is_daily_limit(e):
+                        raise  # minutes to hours away: retrying every 30 s would only stall the job
                     if isinstance(e, RateLimitError):
                         rate_limits += 1
                         attempt, limit = rate_limits, self._max_rate_limit_retries

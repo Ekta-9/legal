@@ -1,4 +1,6 @@
 import logging
+import math
+import re
 from typing import Protocol
 
 import groq
@@ -6,7 +8,7 @@ import groq
 from app.cache.store import CacheStore
 from app.constants import MAX_CLAUSES
 from app.jobs.manager import job_manager
-from app.llm.groq_client import GroqClient
+from app.llm.groq_client import GroqClient, is_daily_limit
 from app.llm.simplify import ClauseCache, CompletesPrompts, simplify_clauses
 from app.llm.verify import make_verifier
 from app.models.schemas import ClauseOutline, GlossaryMatch, JobStatus, SimplifiedClause
@@ -74,6 +76,15 @@ def set_glossary_store(store: GlossarySearch | None) -> None:
     _glossary_store = store
 
 
+def _wait_minutes(message: str) -> int | None:
+    """"Please try again in 13m0.624s" / "in 1h2m3s" / "in 45.2s" -> whole minutes, rounded up."""
+    match = re.search(r"try again in (?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?", message)
+    if not match or not any(match.groups()):
+        return None
+    hours, minutes, seconds = (float(g) if g else 0.0 for g in match.groups())
+    return max(1, math.ceil(hours * 60 + minutes + seconds / 60))
+
+
 def user_message(error: Exception) -> str:
     """What the reader is told when the model can't be reached. Raw exception
     text can contain request details, so it only goes to the log.
@@ -83,6 +94,10 @@ def user_message(error: Exception) -> str:
     ):
         # a bare GroqError is what the SDK raises when no API key is set at all
         return "The Groq API key is missing or invalid. Set GROQ_API_KEY in .env and restart the server."
+    if is_daily_limit(error):
+        wait = _wait_minutes(str(error))
+        when = f"in about {wait} minute{'s' if wait != 1 else ''}" if wait else "later"
+        return f"The free Groq quota for today is used up for this model. Try again {when}."
     if isinstance(error, groq.RateLimitError):
         return "Groq's rate limit was reached. Wait a minute and try again."
     if isinstance(error, groq.APIConnectionError):
@@ -196,4 +211,7 @@ async def _process_document(job_id: str, filename: str, content: bytes) -> None:
         job_manager.fail(job_id, user_message(errors[0]))
         return
     logger.info("Job %s: done, %d of %d clauses simplified", job_id, len(simplified), len(clauses))
+    if errors:
+        # some clauses came back, some didn't: the page says why the rest are missing
+        job_manager.note(job_id, user_message(errors[-1]))
     job_manager.set_status(job_id, JobStatus.DONE)

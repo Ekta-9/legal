@@ -127,7 +127,7 @@ async def test_rate_limit_waits_for_retry_after_but_never_longer_than_the_cap():
 
     errors = [
         _error_with_status(RateLimitError, 429, {"retry-after": "7"}),
-        _error_with_status(RateLimitError, 429, {"retry-after": "3600"}),
+        _error_with_status(RateLimitError, 429, {"retry-after": "45"}),
     ]
     sleeps: list[float] = []
 
@@ -255,3 +255,41 @@ async def test_request_too_large_is_retried_once_with_a_smaller_output_allowance
     with pytest.raises(Exception) as raised:
         await call("prompt")
     assert raised.value.status_code == 413
+
+
+DAILY_LIMIT_MESSAGE = (
+    "Rate limit reached for model `openai/gpt-oss-20b` on tokens per day (TPD): Limit 200000, "
+    "Used 199726, Requested 2081. Please try again in 13m0.624s."
+)
+
+
+@pytest.mark.asyncio
+async def test_daily_limit_is_raised_at_once_not_retried_for_minutes():
+    attempts = 0
+
+    async def call_fn(prompt: str) -> str:
+        nonlocal attempts
+        attempts += 1
+        raise RateLimitError(DAILY_LIMIT_MESSAGE, response=_error_with_status(RateLimitError, 429).response, body=None)
+
+    async def fake_sleep(delay: float) -> None:
+        raise AssertionError("must not wait on a daily limit")
+
+    client = GroqClient(call_fn=call_fn, sleep_fn=fake_sleep)
+    with pytest.raises(RateLimitError):
+        await client.complete("prompt")
+    assert attempts == 1
+
+
+def test_a_long_retry_after_counts_as_the_daily_limit():
+    from app.llm.groq_client import is_daily_limit
+
+    assert is_daily_limit(_error_with_status(RateLimitError, 429, {"retry-after": "780"}))
+    assert not is_daily_limit(_error_with_status(RateLimitError, 429, {"retry-after": "7"}))
+
+
+def test_daily_limit_message_says_how_long_to_wait():
+    from app.jobs.pipeline import user_message
+
+    error = RateLimitError(DAILY_LIMIT_MESSAGE, response=_error_with_status(RateLimitError, 429).response, body=None)
+    assert user_message(error) == "The free Groq quota for today is used up for this model. Try again in about 14 minutes."

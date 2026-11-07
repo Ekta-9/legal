@@ -6,6 +6,7 @@ GROQ_MAX_RETRIES = 4  # retries after the first attempt, for timeouts, connectio
 GROQ_MAX_RATE_LIMIT_RETRIES = 12
 GROQ_BACKOFF_BASE_SECONDS = 1.0
 GROQ_MAX_BACKOFF_SECONDS = 30.0  # cap on any single wait, including Groq's retry-after
+GROQ_MAX_RATE_LIMIT_WAIT_SECONDS = 60.0  # a 429 asking to wait longer is the daily limit: fail fast instead of retrying
 GROQ_TIMEOUT_SECONDS = 60.0
 GROQ_TEMPERATURE = 0.2  # low: faithful rewording, not creative variation
 # gpt-oss counts its reasoning tokens against this cap too; 6 clauses with context fit with room to spare

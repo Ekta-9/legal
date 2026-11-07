@@ -41,6 +41,10 @@ class JobManager:
     def add_completed(self, job_id: str, clauses: list[SimplifiedClause]) -> None:
         self._jobs[job_id].completed.extend(clauses)
 
+    def note(self, job_id: str, error: str) -> None:
+        """Why some clauses are missing from a job that still finished."""
+        self._jobs[job_id].error = error
+
     def fail(self, job_id: str, error: str) -> None:
         job = self._jobs[job_id]
         job.status = JobStatus.FAILED

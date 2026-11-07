@@ -286,3 +286,31 @@ async def test_signature_section_is_shown_but_never_sent_to_the_model(async_clie
     assert len(signatures) == 1 and signatures[0]["text"].endswith("TENANT")
     assert result["total_clauses"] == 2
     assert all("IN WITNESS WHEREOF" not in prompt for prompt in with_fake_groq.prompts)
+
+
+@pytest.mark.asyncio
+async def test_clauses_lost_to_the_daily_limit_say_why(async_client, with_fake_groq, monkeypatch):
+    import httpx
+    from groq import RateLimitError
+
+    from app.jobs import pipeline as pipeline_module
+
+    class DailyLimitAfterFirstBatch:
+        def __init__(self):
+            self.calls = 0
+
+        async def complete(self, prompt):
+            self.calls += 1
+            if self.calls > 1:
+                response = httpx.Response(429, request=httpx.Request("POST", "https://api.groq.com"))
+                raise RateLimitError("tokens per day (TPD) ... Please try again in 4m10s.", response=response, body=None)
+            return await with_fake_groq.complete(prompt)
+
+    pipeline_module.set_client(DailyLimitAfterFirstBatch())
+    monkeypatch.setattr("app.config.settings.groq_batch_size", 1)
+    upload = await async_client.post("/api/documents", data={"text": "1. Rent\nPay monthly.\n\n2. Deposit\nPay a deposit."})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.DONE.value
+    assert [c["failed"] for c in sorted(result["completed"], key=lambda c: c["id"])] == [False, True]
+    assert result["error"] == "The free Groq quota for today is used up for this model. Try again in about 5 minutes."

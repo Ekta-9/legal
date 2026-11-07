@@ -154,7 +154,8 @@ function finish(data) {
     clausesEl.appendChild(empty);
   } else if (failedCount > 0) {
     const labels = [...clausesEl.querySelectorAll(".clause.is-missing")].map((row) => row.dataset.label);
-    setStatus(`Done. ${failedCount} clause(s) could not be simplified: ${labels.join(", ")}`, true);
+    const reason = data.error ? ` ${data.error}` : "";
+    setStatus(`Done. ${failedCount} clause(s) could not be simplified: ${labels.join(", ")}.${reason}`, true);
   } else {
     setStatus("Done. All clauses simplified.");
   }
