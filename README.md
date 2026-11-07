@@ -1,3 +1,13 @@
+---
+title: Saral
+emoji: 📄
+colorFrom: blue
+colorTo: gray
+sdk: docker
+app_port: 7860
+short_description: Contracts rewritten clause by clause in plain English
+---
+
 # Saral
 
 Saral (Hindi: "simple") is a plain-language contract reader. Upload a legal contract and get each clause rewritten in plain English, shown beside the original so you can check every line against the source.
@@ -56,6 +66,17 @@ uvicorn app.main:app --reload
 Open <http://127.0.0.1:8000>. The API and the frontend are served from the same address.
 
 If you choose a translation, the NLLB model (~2.4 GB) is downloaded from Hugging Face on first use.
+
+## Deploying
+
+The `Dockerfile` runs Saral on [Hugging Face Spaces](https://huggingface.co/spaces) (Docker SDK; the free CPU tier has the memory the translation model needs). The block at the top of this README is the Space's configuration.
+
+1. Create a Space with the **Docker** SDK and add a secret `GROQ_API_KEY` under *Settings → Variables and secrets*.
+2. Push this repository to it: `git remote add space https://huggingface.co/spaces/<user>/saral`, then `git push space main` (use a Hugging Face access token with write permission as the password).
+
+It also runs anywhere Docker does: `docker build -t saral .` then `docker run -p 7860:7860 -e GROQ_API_KEY=... saral`.
+
+Everyone using a deployment shares its Groq quota, and results and the clause cache are cleared when the container restarts. Run a single worker: jobs are kept in memory.
 
 ## Tests
 

@@ -1,0 +1,14 @@
+# kept out of the image: secrets, local state, and what the running app doesn't need
+.git
+.venv
+venv
+.env
+*.env
+data
+tests
+docs
+.vscode
+.idea
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
