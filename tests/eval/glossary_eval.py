@@ -15,11 +15,16 @@ import argparse
 import json
 from pathlib import Path
 
-from app.parsing.clause_splitter import split_clauses
+from app.parsing.clause_splitter import is_heading_only, is_signature_block, split_clauses
 
 EVAL_DIR = Path(__file__).resolve().parent
 GOLD = EVAL_DIR / "glossary_gold.json"
 EVAL_SET = EVAL_DIR / "eval_set.json"
+
+
+def _skipped(text: str) -> bool:
+    # as the app does: titles and signature lines are never simplified, so no terms are shown for them
+    return is_heading_only(text) or is_signature_block(text)
 
 
 def _clauses(split: str):
@@ -29,13 +34,16 @@ def _clauses(split: str):
         for document in json.loads(EVAL_SET.read_text(encoding="utf-8"))["documents"]:
             labels = gold["documents"].get(document["name"], {})
             for clause in split_clauses(document["text"]):
-                yield document["name"], labels.get(clause.heading, []), clause.heading, clause.text
+                if not _skipped(clause.text):
+                    yield document["name"], labels.get(clause.heading, []), clause.heading, clause.text
     else:
         from tests.eval.rag_eval import clause_label, load_documents
 
         texts = {d["name"]: d["text"] for d in load_documents()}
         for name, labels in gold["heldout"].items():
             for clause in split_clauses(texts[name]):
+                if _skipped(clause.text):
+                    continue
                 key = clause_label(clause.heading)
                 yield name, labels.get(key, []), key, clause.text
 

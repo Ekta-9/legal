@@ -29,7 +29,7 @@ from pathlib import Path
 from app.llm.groq_client import GroqClient
 from app.llm.simplify import simplify_clauses
 from app.llm.verify import make_verifier
-from app.parsing.clause_splitter import split_clauses
+from app.parsing.clause_splitter import is_heading_only, is_signature_block, split_clauses
 from app.rag.document_context import attach_context
 
 EVAL_SET = Path(__file__).resolve().parent / "eval_set.json"
@@ -69,6 +69,8 @@ async def evaluate(model: str, documents: list[dict], run: int = 1) -> dict:
     started = time.perf_counter()
     for document in documents:
         clauses = attach_context(document["text"], split_clauses(document["text"]))
+        # as the app does: titles and signature lines are shown, never sent to the model
+        clauses = [c for c in clauses if not is_heading_only(c.text) and not is_signature_block(c.text)]
         simplified, dropped = await simplify_clauses(clauses, client, verify_fn=make_verifier(client))
         by_id = {s.id: s for s in simplified}
         for clause in clauses:

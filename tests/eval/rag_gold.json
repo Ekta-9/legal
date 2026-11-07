@@ -119,6 +119,50 @@
       }
     },
     {
+      "name": "rental_agreement_dense",
+      "split": "eval",
+      "source": "eval_set",
+      "parties": {
+        "OWNER": "Anil Deshmukh",
+        "TENANT": "Neha Kulkarni"
+      },
+      "defined_terms": [
+        "Demised Premises"
+      ],
+      "clauses": {
+        "3": {
+          "definitions": [
+            "Demised Premises"
+          ],
+          "sections": []
+        },
+        "4": {
+          "definitions": [
+            "Demised Premises"
+          ],
+          "sections": []
+        },
+        "5": {
+          "definitions": [
+            "Demised Premises"
+          ],
+          "sections": []
+        },
+        "7": {
+          "definitions": [
+            "Demised Premises"
+          ],
+          "sections": []
+        },
+        "9": {
+          "definitions": [
+            "Demised Premises"
+          ],
+          "sections": []
+        }
+      }
+    },
+    {
       "name": "stress",
       "split": "dev",
       "text": "This Supply Agreement is made between Meridian Agro Exports Pvt. Ltd., a company incorporated under the Companies Act, 2013 (hereinafter referred to as the \"Seller\"), and Mr. S. K. Iyer, trading as Iyer Traders (\"Buyer\") (each a \"Party\" and together the \"Parties\").\n\n1. Definitions\n\"Effective Date\" shall have the meaning given in Clause 2.\n'Confidential Information' means all technical and commercial information disclosed by either Party.\n\"Goods\" means:\n(a) basmati rice; and\n(b) any other produce listed in the Schedule.\n\"Business Day\" means a day on which banks in Chennai are open.\n\n2. Commencement\nThis Agreement starts on the date it is signed by both Parties (the \"Effective Date\").\n\n3. Orders\nThe Buyer shall place orders for Goods at least 5 Business Days before the required delivery date.\n\n4. Price\nThe price of the Goods is set out in Clause 9 of the Schedule and is fixed for 6 months from the Effective Date.\n\n5. Delivery\nThe Seller shall deliver the Goods to the Buyer's warehouse. Risk passes on delivery in accordance with Clauses 6 and 7.\n\n6. Inspection\nThe Buyer may inspect the goods within 2 Business Days of delivery.\n\n7. Rejection\nThe Buyer may reject defective Goods under sub-clause 6 by written notice.\n\n8. Confidentiality\nNeither Party shall disclose any Confidential Information except as permitted under Section 5(b).\n",

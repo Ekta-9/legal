@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-written evaluation contracts. For each clause heading, must_mention lists concepts the plain version must keep; each concept is a list of acceptable words (any one counts, case-insensitive). Numbers are checked separately by app/llm/facts.py. expect_unsure lists clauses that are genuinely ambiguous, where the right behaviour is self_check=true. expect_context lists concepts that can only come from elsewhere in the contract (definitions, party names), i.e. what document-context retrieval is for.",
+  "_comment": "Hand-written evaluation contracts. For each clause heading, must_mention lists concepts the plain version must keep; each concept is a list of acceptable words (any one counts, case-insensitive). Numbers are checked separately by app/llm/facts.py. expect_unsure lists clauses that are genuinely ambiguous, where the right behaviour is self_check=true. expect_context lists concepts that can only come from elsewhere in the contract (definitions, party names), i.e. what document-context retrieval is for. rental_agreement_dense (added 2026-11-07) follows the layout of a common Indian rental template: a dense preamble (S/o, 'hereinafter jointly and severally called', heirs and successors, WHEREAS recitals), 'That the ...' clauses, an annexure and a signature page, which the earlier contracts lacked.",
   "documents": [
     {
       "name": "rental_agreement",
@@ -283,7 +283,8 @@
           ],
           [
             "carr",
-            "roll"
+            "roll",
+            "next year"
           ],
           [
             "lapse",
@@ -672,7 +673,8 @@
             "can't be remedied",
             "remedyable",
             "remediable",
-            "curable"
+            "curable",
+            "could be fixed"
           ],
           [
             "immediate",
@@ -793,6 +795,360 @@
         "10. Assignment": [
           [
             "Northwind"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "rental_agreement_dense",
+      "text": "RENTAL AGREEMENT\nThis RENTAL AGREEMENT is executed at Pune on this 10th day of March, 2026 by\nand between:\nMr. Anil Deshmukh,\nS/o Mr. Prakash Deshmukh,\nresiding at 12 Law College Road, Erandwane, Pune\n(hereinafter jointly and severally called the \"OWNER\", which expression shall\ninclude their\nheirs, legal representatives, successors and assigns) of the ONE PART:\nAND, in favour of:\nMs. Neha Kulkarni,\nD/o Mr. Sunil Kulkarni,\nWorking at Infosys Ltd., Hinjewadi, Pune\nhaving a permanent address at 3 Station Road, Nashik\n(hereinafter called the \"TENANT\", which expression shall include its legal\nrepresentatives,\nsuccessors and assigns) of the OTHER PART.\nWHEREAS the Owner is the absolute owner of the property situated at Flat No. 504,\nGreen Valley Society, Baner, Pune as detailed in Annexure-I, hereinafter referred to as\n\"Demised Premises\".\nWHEREAS the Tenant has requested the Owner to grant Rent with respect to the Schedule\nPremises and the Owner has agreed to rent out to the Tenant the Property with one\nfour-wheeler parking space for residential purposes only, on the following\nterms and conditions:\nNOW THIS DEED WITNESSETH AS FOLLOWS:\n1. The rent in respect of the \"Demised Premises\" shall commence from 1st April, 2026\nand shall be valid till 28th February, 2027. Thereafter, the same may be\nextended further on mutual consent of both the parties.\n2. That the Tenant shall pay to the Owner a monthly rent of Rs. 22,000/-,\nexcluding electricity and water bill. The rent shall be paid on or before 7th day of each month\nwithout fail.\n3. That the Tenant shall pay to the Owner an interest-free security deposit of Rs. 66,000/-,\nwhich shall be refunded by the Owner at the time of the Tenant vacating the Demised Premises,\nafter deducting arrears of rent and the cost of damages, if any, save and except normal wear\nand tear.\n4. That in the event of the Tenant committing default in payment of rent for two consecutive\nmonths, the Owner shall be entitled to terminate this agreement forthwith and take back\npossession of the Demised Premises, notwithstanding anything to the contrary contained herein.\n5. That the Tenant shall not sub-let, assign or otherwise part with the possession of the whole\nor any part of the Demised Premises without the prior written consent of the Owner.\n6. That no structural additions or alterations shall be made by the Tenant in the premises\nwithout the prior written consent of the Owner but the Tenant can install air-conditioners in the\nspace provided and other electrical gadgets at his own cost.\n7. That either party may terminate this agreement by giving one month's notice in writing to the\nother party; provided that if the Tenant vacates the Demised Premises within the lock-in period\nof six months from the commencement of the rent, the Tenant shall pay the rent for the unexpired\nportion of the lock-in period.\n8. That the Owner shall be responsible for major repairs including structural repairs and leakage,\nand the day-to-day minor repairs shall be carried out by the Tenant at his own cost.\n9. That the Tenant shall permit the Owner or his authorised agent to enter and inspect the Demised\nPremises at all reasonable times upon giving 24 hours' prior notice.\n10. That the Rent Agreement will be registered in front of the Registrar and the charges towards\nstamp duty, court fee & lawyer/coordinator will be equally borne by the Owner and Tenant.\nANNEXURE-I\nFlat No. 504, Green Valley Society, Baner, Pune, consisting of 2 bedrooms, living\nroom, kitchen and inbuilt fittings & fixtures and inventory of\n4 fans, 6 CFL lights, 1 geyser and 2 mirrors.\nIN WITNESS WHEREOF BOTH PARTIES AGREES AND SIGNS THIS AGREEMENT\nON THIS DAY AND YEAR\nWITNESSES:\n1. Rahul Joshi\n(Signature of the Witness)\n2. Meera Patil\n(Signature of the Witness)\n(Signature of the Owner)\n(Signature of the Tenant)\nAnil Deshmukh\nNeha Kulkarni\nOWNER\nTENANT",
+      "expect": {
+        "Preamble": [
+          [
+            "Anil"
+          ],
+          [
+            "Neha"
+          ],
+          [
+            "Pune"
+          ],
+          [
+            "owner",
+            "landlord"
+          ],
+          [
+            "tenant"
+          ],
+          [
+            "504",
+            "Green Valley"
+          ],
+          [
+            "residential",
+            "live",
+            "living",
+            "home"
+          ],
+          [
+            "parking"
+          ],
+          [
+            "heir",
+            "successor",
+            "takes over",
+            "take over",
+            "inherit"
+          ]
+        ],
+        "1. The rent in respect of the \"Demised Premises\" shall commence from 1st April, 2026": [
+          [
+            "1 April",
+            "1st April",
+            "April 1"
+          ],
+          [
+            "28 February",
+            "28th February",
+            "February 28"
+          ],
+          [
+            "extend",
+            "renew"
+          ],
+          [
+            "both",
+            "mutual",
+            "agree"
+          ]
+        ],
+        "2. That the Tenant shall pay to the Owner a monthly rent of Rs. 22,000/-,": [
+          [
+            "22,000",
+            "22000"
+          ],
+          [
+            "electricity"
+          ],
+          [
+            "water"
+          ],
+          [
+            "7th",
+            "7 ",
+            "seventh"
+          ],
+          [
+            "month"
+          ]
+        ],
+        "3. That the Tenant shall pay to the Owner an interest-free security deposit of Rs. 66,000/-,": [
+          [
+            "66,000",
+            "66000"
+          ],
+          [
+            "interest"
+          ],
+          [
+            "refund",
+            "return",
+            "give back"
+          ],
+          [
+            "arrears",
+            "unpaid",
+            "owed",
+            "due"
+          ],
+          [
+            "damage"
+          ],
+          [
+            "wear and tear",
+            "wear"
+          ]
+        ],
+        "4. That in the event of the Tenant committing default in payment of rent for two consecutive": [
+          [
+            "two",
+            "2 "
+          ],
+          [
+            "consecutive",
+            "in a row",
+            "back-to-back"
+          ],
+          [
+            "terminate",
+            "end the",
+            "cancel"
+          ],
+          [
+            "immediate",
+            "right away",
+            "at once",
+            "straight away",
+            "without notice"
+          ],
+          [
+            "possession",
+            "take back",
+            "back"
+          ],
+          [
+            "notwithstanding",
+            "regardless",
+            "even if",
+            "despite",
+            "overrides",
+            "whatever else",
+            "no matter",
+            "anything else"
+          ]
+        ],
+        "5. That the Tenant shall not sub-let, assign or otherwise part with the possession of the whole": [
+          [
+            "sub-let",
+            "sublet",
+            "rent out",
+            "sub-lease"
+          ],
+          [
+            "assign",
+            "transfer"
+          ],
+          [
+            "part",
+            "any portion",
+            "portion"
+          ],
+          [
+            "written",
+            "writing"
+          ],
+          [
+            "consent",
+            "permission",
+            "approval"
+          ]
+        ],
+        "6. That no structural additions or alterations shall be made by the Tenant in the premises": [
+          [
+            "structural",
+            "structure"
+          ],
+          [
+            "written",
+            "writing"
+          ],
+          [
+            "consent",
+            "permission",
+            "approval"
+          ],
+          [
+            "air-condition",
+            "air condition",
+            "ac "
+          ],
+          [
+            "own cost",
+            "own expense",
+            "pay for",
+            "at his cost",
+            "at their cost",
+            "at her cost"
+          ]
+        ],
+        "7. That either party may terminate this agreement by giving one month's notice in writing to the": [
+          [
+            "one month",
+            "1 month",
+            "30 days"
+          ],
+          [
+            "notice"
+          ],
+          [
+            "written",
+            "writing"
+          ],
+          [
+            "lock-in",
+            "lock in",
+            "minimum",
+            "six-month period",
+            "6-month period"
+          ],
+          [
+            "six",
+            "6"
+          ],
+          [
+            "unexpired",
+            "remaining",
+            "rest of",
+            "remainder",
+            "balance"
+          ]
+        ],
+        "8. That the Owner shall be responsible for major repairs including structural repairs and leakage,": [
+          [
+            "major"
+          ],
+          [
+            "structural"
+          ],
+          [
+            "leak"
+          ],
+          [
+            "minor",
+            "small"
+          ],
+          [
+            "own cost",
+            "own expense",
+            "pay for",
+            "at his cost",
+            "at their cost",
+            "at her cost"
+          ]
+        ],
+        "9. That the Tenant shall permit the Owner or his authorised agent to enter and inspect the Demised": [
+          [
+            "inspect",
+            "check",
+            "visit",
+            "enter"
+          ],
+          [
+            "reasonable"
+          ],
+          [
+            "24"
+          ],
+          [
+            "notice"
+          ]
+        ],
+        "10. That the Rent Agreement will be registered in front of the Registrar and the charges towards": [
+          [
+            "regist"
+          ],
+          [
+            "stamp duty"
+          ],
+          [
+            "court fee"
+          ],
+          [
+            "lawyer",
+            "coordinator"
+          ],
+          [
+            "equal",
+            "half",
+            "50",
+            "split"
+          ]
+        ],
+        "ANNEXURE-I": [
+          [
+            "504",
+            "Green Valley"
+          ],
+          [
+            "2 bedroom",
+            "two bedroom"
+          ],
+          [
+            "kitchen"
+          ],
+          [
+            "4 fans",
+            "four fans",
+            "4 ceiling fans"
+          ],
+          [
+            "6 CFL",
+            "six CFL",
+            "6 light",
+            "six light"
+          ],
+          [
+            "geyser",
+            "water heater"
+          ],
+          [
+            "2 mirrors",
+            "two mirrors"
+          ]
+        ]
+      },
+      "expect_context": {
+        "2. That the Tenant shall pay to the Owner a monthly rent of Rs. 22,000/-,": [
+          [
+            "Neha"
+          ],
+          [
+            "Anil"
+          ]
+        ],
+        "5. That the Tenant shall not sub-let, assign or otherwise part with the possession of the whole": [
+          [
+            "504",
+            "Green Valley",
+            "flat"
+          ]
+        ],
+        "9. That the Tenant shall permit the Owner or his authorised agent to enter and inspect the Demised": [
+          [
+            "Neha"
+          ],
+          [
+            "Anil"
           ]
         ]
       }

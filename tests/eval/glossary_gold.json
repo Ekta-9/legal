@@ -86,9 +86,29 @@
       "11. Price Review": [
         "Notice"
       ]
+    },
+    "rental_agreement_dense": {
+      "Preamble": [
+        "Successors and Assigns",
+        "Recital"
+      ],
+      "4. That in the event of the Tenant committing default in payment of rent for two consecutive": [
+        "Default",
+        "Termination for Cause"
+      ],
+      "5. That the Tenant shall not sub-let, assign or otherwise part with the possession of the whole": [
+        "Assignment"
+      ],
+      "7. That either party may terminate this agreement by giving one month's notice in writing to the": [
+        "Notice",
+        "Termination for Convenience"
+      ],
+      "9. That the Tenant shall permit the Owner or his authorised agent to enter and inspect the Demised": [
+        "Notice"
+      ]
     }
   },
-  "dev_comment": "documents: the tests/eval contracts, keyed by clause heading. The patterns in glossary.json were written against these, so they are a regression check, not evidence of accuracy.",
+  "dev_comment": "documents: the tests/eval contracts, keyed by clause heading. The patterns in glossary.json were written against these, so they are a regression check, not evidence of accuracy. rental_agreement_dense (2026-11-07) was labelled after seeing the matcher's output; two of its terms were judged wrong and fixed in the patterns: Assignment on 'successors and assigns' (a noun: whoever takes over) and Damages on 'cost of damages' (physical damage, not money awarded by a court).",
   "heldout_comment": "heldout: real CUAD contracts from tests/eval/rag_gold.json, keyed by clause number, labelled by reading with the same rule before the pattern matcher was run on them. Blind result before any change: pattern matcher precision 81% / recall 91%; the old embedding search 25% / 42%. Afterwards one labelling error was corrected (distributor preamble: 'The Distributor represents that' -> Representation) and the patterns were fixed for 'as amended' (a statute), 'limited liability company', filing labels like 'Exhibit h(2)', 'without cause' and 'change or modification of this Agreement' — so this split is no longer held out. The signature section after the last clause is its own block, keyed 'Signatures' (2026-11-07); cuad_sponsorship's 'In Witness Whereof' moved there from clause 10, which used to swallow it.",
   "heldout": {
     "cuad_distributor": {
