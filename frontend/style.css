@@ -231,6 +231,33 @@ main {
   color: var(--accent);
 }
 
+/* hero.js: the heading is hidden from first paint and forms block by block */
+.hero-forming .display,
+.hero-forming .display .accent {
+  -webkit-text-fill-color: transparent;
+}
+
+.hero .display {
+  position: relative;
+}
+
+.display-forming {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* if hero.js never runs, the heading still appears */
+.hero-forming:not(.hero-animating) .display,
+.hero-forming:not(.hero-animating) .display .accent {
+  animation: hero-fallback 0s linear 2.5s forwards;
+}
+
+@keyframes hero-fallback {
+  to {
+    -webkit-text-fill-color: currentcolor;
+  }
+}
+
 .lede {
   max-width: 46ch;
   margin: 28px 0 0;

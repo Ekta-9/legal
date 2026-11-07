@@ -9,6 +9,11 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@900&family=Space+Mono:wght@400;700&display=swap" />
   <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600&display=swap" />
   <link rel="stylesheet" href="/style.css" />
+  <script>
+    // hide the heading before the first paint so it can form block by block (hero.js)
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("hero-forming");
+  </script>
+  <script src="/hero.js" defer></script>
 </head>
 <body>
   <header class="topbar">
