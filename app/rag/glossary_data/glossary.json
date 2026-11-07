@@ -111,7 +111,7 @@
     "term": "Damages",
     "definition": "Money awarded to compensate a party for loss or injury caused by the other party's breach of contract.",
     "patterns": [
-      "\\bdamages\\b"
+      "(?<!cost\\sof\\s)(?<!costs\\sof\\s)\\bdamages\\b(?!\\s+(?:to|in)\\s+(?:the\\s+)?(?:premises|property|flat|building|house))"
     ]
   },
   {
@@ -366,7 +366,7 @@
     "term": "Assignment",
     "definition": "The transfer of a party's rights or obligations under a contract to another person or entity.",
     "patterns": [
-      "\\bassign(?:s|ed|ment|ments|ing)?\\b"
+      "(?<!successors\\sand\\s)(?<!permitted\\s)\\bassign(?:s|ed|ment|ments|ing)?\\b"
     ]
   },
   {
