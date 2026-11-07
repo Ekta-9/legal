@@ -36,7 +36,7 @@ class JobManager:
     def set_clauses(self, job_id: str, clauses: list[ClauseOutline]) -> None:
         job = self._jobs[job_id]
         job.clauses = clauses
-        job.total_clauses = sum(1 for c in clauses if not c.heading_only)
+        job.total_clauses = sum(1 for c in clauses if not c.skipped)
 
     def add_completed(self, job_id: str, clauses: list[SimplifiedClause]) -> None:
         self._jobs[job_id].completed.extend(clauses)

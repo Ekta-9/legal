@@ -176,7 +176,7 @@ def test_run_on_paragraph_is_split_at_the_next_number_in_sequence_only():
 @pytest.mark.parametrize(
     "name, expected",
     [
-        ("cuad_content_license", ["Preamble"] + [x for n, subs in [(1, 2), (2, 3), (3, 4), (4, 2), (5, 4), (6, 3), (7, 5), (8, 4), (9, 1), (10, 2)] for x in [str(n)] + [f"{n}.{s}" for s in range(1, subs + 1)]]),
+        ("cuad_content_license", ["Preamble"] + [x for n, subs in [(1, 2), (2, 3), (3, 4), (4, 2), (5, 4), (6, 3), (7, 5), (8, 4), (9, 1), (10, 2)] for x in [str(n)] + [f"{n}.{s}" for s in range(1, subs + 1)]] + ["Appendix I", "Appendix 2"]),
         ("cuad_distributor", ["Preamble"] + [str(n) for n in range(1, 19)]),
         ("cuad_strategic_alliance", ["Preamble", "1", "1.1", "1.2", "1.3", "2", "2.1", "2.2", "2.3", "3"] + [f"3.{n}" for n in range(1, 13)]),
     ],
@@ -207,3 +207,55 @@ def test_heading_only(text, expected):
     from app.parsing.clause_splitter import is_heading_only
 
     assert is_heading_only(text) is expected
+
+
+# the end of a common Indian rental template: an annexure and the signature section used to
+# end up inside clause 21
+RENTAL_TAIL = """20. That the Tenant shall pay the electricity bills.
+21. That the Rent Agreement will be registered in front of the Registrar and the charges towards
+stamp duty, court fee & lawyer/coordinator will be equally borne by the Owner and Tenant.
+ANNEXURE-I
+The (Complete Address) of the Property, consisting (Number of Bedrooms) bedrooms, living
+room, kitchen and inbuilt fittings & fixtures.
+IN WITNESS WHEREOF BOTH PARTIES AGREES AND SIGNS THIS AGREEMENT
+ON THIS DAY AND YEAR
+WITNESSES:
+1. (Name of the Witness)
+(Signature of the Witness)
+2. (Name of the Witness)
+(Signature of the Witness)
+(Signature of the Owner)
+(Signature of the Tenant)
+OWNER
+TENANT"""
+
+
+def test_annexure_and_signatures_after_the_last_clause_are_their_own_blocks():
+    from app.parsing.clause_splitter import is_signature_block
+
+    clauses = split_clauses(RENTAL_TAIL)
+    assert _labels(RENTAL_TAIL) == ["20", "21", "Annexure I", "Signatures"]
+    assert clauses[1].text.endswith("equally borne by the Owner and Tenant.")
+    assert [is_signature_block(c.text) for c in clauses] == [False, False, False, True]
+    assert " ".join(c.text for c in clauses).split() == RENTAL_TAIL.split()
+
+
+def test_title_case_annexure_word_inside_a_clause_is_not_a_block():
+    text = "1. Services\nThe Supplier provides the services in\nExhibit A and the Customer shall pay for them.\n2. Term\nOne year."
+    assert _labels(text) == ["1", "2"]
+
+
+def test_signature_section_that_says_something_is_simplified():
+    from app.parsing.clause_splitter import is_signature_block
+
+    wrapped_formula = (
+        "IN WITNESS WHEREOF, the parties have caused this Agreement to be\nexecuted by their duly authorized "
+        "officers as of the date first\nabove written.\nACME CORP.\nBy: /s/ John Smith\nTitle: Chief Executive Officer"
+    )
+    with_a_limit = (
+        "IN WITNESS WHEREOF, the parties have signed this Agreement. The undersigned Trustee has signed "
+        "not individually but as a Trustee, and the obligations of this Agreement bind only the Trust estate.\n"
+        "By: /s/ Jane Doe"
+    )
+    assert is_signature_block(wrapped_formula)
+    assert not is_signature_block(with_a_limit)

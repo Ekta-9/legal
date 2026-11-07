@@ -26,11 +26,23 @@ EVAL_SET = EVAL_DIR / "eval_set.json"
 _LABEL_RE = re.compile(r"^\s*(?:(?:section|article|clause)\s+)?(\d+(?:\.\d+)*)", re.IGNORECASE)
 
 
+_ANNEX_LABEL_RE = re.compile(r"^\s*(annexure|annex|schedule|appendix|exhibit)\b[\s\-:]*([IVXLC]+|\d{1,3}|[A-Z])?\b", re.IGNORECASE)
+
+
 def clause_label(heading: str | None) -> str | None:
     if heading == PREAMBLE_HEADING:
         return "Preamble"
+    annex = _ANNEX_LABEL_RE.match(heading or "")
+    if annex:  # "SCHEDULE 1" -> "Schedule 1"
+        return " ".join(filter(None, (annex.group(1).title(), annex.group(2))))
+    if is_signature_heading(heading):
+        return "Signatures"
     match = _LABEL_RE.match(heading or "")
     return match.group(1) if match else None
+
+
+def is_signature_heading(heading: str | None) -> bool:
+    return bool(re.match(r"^\s*(?:IN\s+WITNESS|WITNESS(?:ES)?\s*:|SIGNED\b)", heading or "", re.IGNORECASE))
 
 
 def load_documents() -> list[dict]:

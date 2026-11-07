@@ -270,3 +270,19 @@ async def test_heading_only_clauses_are_shown_but_never_sent_to_the_model(async_
     assert result["total_clauses"] == 3
     assert {c["heading"] for c in result["completed"]} == {"1.1 Rent", "1.2 Deposit", "2.1 Notice"}
     assert all("Article 1 Payment Terms" not in prompt.split("Clauses:")[1] for prompt in with_fake_groq.prompts)
+
+
+@pytest.mark.asyncio
+async def test_signature_section_is_shown_but_never_sent_to_the_model(async_client, with_fake_groq):
+    text = (
+        "1. Rent\nPay monthly.\n\n2. Deposit\nPay a deposit.\n\n"
+        "IN WITNESS WHEREOF the parties have signed this agreement.\nWITNESSES:\n1. (Name of the Witness)\nOWNER\nTENANT"
+    )
+    upload = await async_client.post("/api/documents", data={"text": text})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.DONE.value
+    signatures = [c for c in result["clauses"] if c["signature_block"]]
+    assert len(signatures) == 1 and signatures[0]["text"].endswith("TENANT")
+    assert result["total_clauses"] == 2
+    assert all("IN WITNESS WHEREOF" not in prompt for prompt in with_fake_groq.prompts)

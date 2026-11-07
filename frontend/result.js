@@ -55,8 +55,12 @@ function pad(n) {
 
 // The document's own numbering ("§4", "§4.2", "§IV"), "PRE" for the preamble,
 // or the position for unnumbered paragraphs — see app/parsing/clause_splitter.py
+const ANNEX_LABELS = { annexure: "ANX", annex: "ANX", schedule: "SCH", appendix: "APP", exhibit: "EXH" };
+
 function clauseLabel(heading, index) {
   if (heading === "Preamble") return "PRE";
+  const annex = /^\s*(annexure|annex|schedule|appendix|exhibit)\b[\s\-‐-―:]*([IVXLC]+|\d{1,3}|[A-Z])?\b/i.exec(heading || "");
+  if (annex) return annex[2] ? `${ANNEX_LABELS[annex[1].toLowerCase()]} ${annex[2]}` : ANNEX_LABELS[annex[1].toLowerCase()];
   const numbered = /^\s*(\d+(?:\.\d+)*)[.)\s]/.exec(heading || "");
   const article = /^\s*(?:section|article|clause)\s+(\d+(?:\.\d+)*|[IVXLC]+)/i.exec(heading || "");
   const match = numbered || article;
@@ -107,9 +111,13 @@ async function poll() {
 function render(data) {
   const outline = data.clauses || [];
   if (outline.length > 0 && rowsById.size === 0) {
-    totalClauses = outline.filter((clause) => !clause.heading_only).length;
+    totalClauses = outline.filter((clause) => !clause.heading_only && !clause.signature_block).length;
     outline.forEach((clause, index) => {
-      const row = clause.heading_only ? buildHeadingRow(clause, index) : buildRow(clause, index);
+      const row = clause.heading_only
+        ? buildHeadingRow(clause, index)
+        : clause.signature_block
+          ? buildSignatureRow(clause)
+          : buildRow(clause, index);
       rowsById.set(clause.id, row);
       clausesEl.appendChild(row);
     });
@@ -219,6 +227,30 @@ function buildHeadingRow(clause, index) {
   const row = el("div", "clause is-heading");
   row.appendChild(el("div", "clause-idx", label));
   row.appendChild(el("h2", "clause-title", clause.text.replace(/\s+/g, " ")));
+  return row;
+}
+
+// "IN WITNESS WHEREOF" and the names and signatures after it: never sent to the model
+function buildSignatureRow(clause) {
+  const row = el("article", "clause is-signature");
+  row.setAttribute("aria-label", "Signatures");
+  row.appendChild(el("div", "clause-idx", "SIG"));
+
+  const original = el("div", "clause-original");
+  original.appendChild(el("p", "cell-label mono", "Original"));
+  original.appendChild(el("p", "clause-text", clause.text));
+  row.appendChild(original);
+
+  const plain = el("div", "clause-plain");
+  plain.appendChild(el("p", "cell-label mono", "Plain English"));
+  plain.appendChild(
+    el(
+      "p",
+      "clause-note",
+      "Signatures and witnesses — nothing to simplify. Check that the names, dates and signatures are filled in correctly.",
+    ),
+  );
+  row.appendChild(plain);
   return row;
 }
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-labelled answers for app/rag/document_context.py. Clauses are keyed by their number ('4.2') or 'Preamble'; a clause not listed should receive no definitions and no sections. parties: role -> name that must appear in the extracted party entry. split: 'eval' = the tests/eval contracts, 'dev' = the stress document used while improving retrieval, 'heldout' = written before the improvements and not used to tune them. Caveat: the consultancy_heldout failure on 'paragraphs 2 to 3 of Schedule B' was fixed after it was seen, so that one item is no longer held out; add fresh documents to keep the held-out score honest. split 'cuad': real contracts sampled at random (seed 20261105) from the CUAD dataset (The Atticus Project, CC BY 4.0, https://www.atticusprojectai.org/cuad), labelled by reading before retrieval was run on them, and not used to tune it. Labelling rules: a term is defined if this document defines it in quotes (self-references like 'this Agreement' and terms whose meaning is only in an appendix table excluded); a clause uses a term if it appears capitalised (plural/singular too) outside the clause that defines it, and not only inside a longer defined term; sections are references to numbered parts of this document only. not_parties: preamble terms that must not be listed as parties. Corrections after the first scoring run: cuad_capital_maintenance clause 16 and cuad_jv_termination clause 4 also contain the schedule / signature page the splitter merged into them, which use these terms; the first labels missed that (labelling errors, not retrieval changes). The cuad split was then used to fix retrieval, so it is no longer held out. split 'cuad_fresh': 3 more CUAD contracts (seed 20261106), labelled by reading before retrieval was run on them and after the cuad-based fixes, so they measure those fixes on unseen text. Blind result on cuad_fresh before any change for it (after correcting two labelling errors: clauses 1.1 and 3.4 use PRC): definitions P 67% R 45%, sections P 80% R 80%, parties 3/7 with 1 wrong. It was then used to fix retrieval, so it is no longer held out either. Relabelled after the splitter fix: cuad_content_license, cuad_distributor and cuad_strategic_alliance were re-keyed to their now-correct clause boundaries with the same labelling rules.",
+  "_comment": "Hand-labelled answers for app/rag/document_context.py. Clauses are keyed by their number ('4.2') or 'Preamble'; a clause not listed should receive no definitions and no sections. parties: role -> name that must appear in the extracted party entry. split: 'eval' = the tests/eval contracts, 'dev' = the stress document used while improving retrieval, 'heldout' = written before the improvements and not used to tune them. Caveat: the consultancy_heldout failure on 'paragraphs 2 to 3 of Schedule B' was fixed after it was seen, so that one item is no longer held out; add fresh documents to keep the held-out score honest. split 'cuad': real contracts sampled at random (seed 20261105) from the CUAD dataset (The Atticus Project, CC BY 4.0, https://www.atticusprojectai.org/cuad), labelled by reading before retrieval was run on them, and not used to tune it. Labelling rules: a term is defined if this document defines it in quotes (self-references like 'this Agreement' and terms whose meaning is only in an appendix table excluded); a clause uses a term if it appears capitalised (plural/singular too) outside the clause that defines it, and not only inside a longer defined term; sections are references to numbered parts of this document only. not_parties: preamble terms that must not be listed as parties. Corrections after the first scoring run: cuad_capital_maintenance clause 16 and cuad_jv_termination clause 4 also contain the schedule / signature page the splitter merged into them, which use these terms; the first labels missed that (labelling errors, not retrieval changes). The cuad split was then used to fix retrieval, so it is no longer held out. split 'cuad_fresh': 3 more CUAD contracts (seed 20261106), labelled by reading before retrieval was run on them and after the cuad-based fixes, so they measure those fixes on unseen text. Blind result on cuad_fresh before any change for it (after correcting two labelling errors: clauses 1.1 and 3.4 use PRC): definitions P 67% R 45%, sections P 80% R 80%, parties 3/7 with 1 wrong. It was then used to fix retrieval, so it is no longer held out either. Relabelled after the splitter fix: cuad_content_license, cuad_distributor and cuad_strategic_alliance were re-keyed to their now-correct clause boundaries with the same labelling rules. Annexures/schedules and the signature section after the last clause are their own blocks, keyed 'Schedule 1', 'Appendix I' or 'Signatures' (2026-11-07). Two keys moved with them, not relabelled: cuad_capital_maintenance '16' (its two definitions are used in Schedule 1, which clause 16 used to swallow) and cuad_jv_termination '4' (Veoneer/Nissin Parties are used in the IN WITNESS block, not in clause 4).",
   "documents": [
     {
       "name": "rental_agreement",
@@ -409,7 +409,7 @@
             "7"
           ]
         },
-        "16": {
+        "Schedule 1": {
           "definitions": [
             "Specified Minimum Percentage",
             "Company Action Level RBC"
@@ -491,13 +491,18 @@
             "VNBJ Closing",
             "VNBZ Closing",
             "VNBJ SPA",
-            "VNBZ SPA",
-            "Veoneer Parties",
-            "Nissin Parties"
+            "VNBZ SPA"
           ],
           "sections": [
             "1"
           ]
+        },
+        "Signatures": {
+          "definitions": [
+            "Veoneer Parties",
+            "Nissin Parties"
+          ],
+          "sections": []
         }
       }
     },

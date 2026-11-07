@@ -89,7 +89,7 @@
     }
   },
   "dev_comment": "documents: the tests/eval contracts, keyed by clause heading. The patterns in glossary.json were written against these, so they are a regression check, not evidence of accuracy.",
-  "heldout_comment": "heldout: real CUAD contracts from tests/eval/rag_gold.json, keyed by clause number, labelled by reading with the same rule before the pattern matcher was run on them. Blind result before any change: pattern matcher precision 81% / recall 91%; the old embedding search 25% / 42%. Afterwards one labelling error was corrected (distributor preamble: 'The Distributor represents that' -> Representation) and the patterns were fixed for 'as amended' (a statute), 'limited liability company', filing labels like 'Exhibit h(2)', 'without cause' and 'change or modification of this Agreement' — so this split is no longer held out.",
+  "heldout_comment": "heldout: real CUAD contracts from tests/eval/rag_gold.json, keyed by clause number, labelled by reading with the same rule before the pattern matcher was run on them. Blind result before any change: pattern matcher precision 81% / recall 91%; the old embedding search 25% / 42%. Afterwards one labelling error was corrected (distributor preamble: 'The Distributor represents that' -> Representation) and the patterns were fixed for 'as amended' (a statute), 'limited liability company', filing labels like 'Exhibit h(2)', 'without cause' and 'change or modification of this Agreement' — so this split is no longer held out. The signature section after the last clause is its own block, keyed 'Signatures' (2026-11-07); cuad_sponsorship's 'In Witness Whereof' moved there from clause 10, which used to swallow it.",
   "heldout": {
     "cuad_distributor": {
       "Preamble": [
@@ -163,7 +163,9 @@
       "10": [
         "Governing Law",
         "Choice of Law",
-        "Counterparts",
+        "Counterparts"
+      ],
+      "Signatures": [
         "In Witness Whereof"
       ]
     }

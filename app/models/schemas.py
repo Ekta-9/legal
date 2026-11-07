@@ -58,6 +58,11 @@ class ClauseOutline(BaseModel):
     text: str
     context: ClauseContext | None = None  # shown beside the clause, so the reader sees what the model was given
     heading_only: bool = False  # a title like "Article 2 Term of Agreement": shown as a heading, never sent to the model
+    signature_block: bool = False  # "IN WITNESS WHEREOF" + names and signatures: shown as is, never sent to the model
+
+    @property
+    def skipped(self) -> bool:
+        return self.heading_only or self.signature_block
 
 
 class JobStatus(str, enum.Enum):

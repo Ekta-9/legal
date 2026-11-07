@@ -28,6 +28,17 @@ _INLINE_NUMBER_RE = re.compile(r"(?<=[.;:])\s+(?=(\d{1,2})\.\s+[A-Z])")
 _LINE_START_NUMBER_RE = re.compile(r"^\s*(\d{1,3})(?:\.\d{1,3})*[.)]?\s+[A-Z]")
 MIN_RUN_ON_LINE = 200  # only lines this long are searched for inline clause numbers
 
+# What follows the last clause: annexures/schedules ("ANNEXURE-I", "Schedule 2 Rent Payable") and the
+# signature section ("IN WITNESS WHEREOF ...", "WITNESSES:", "Signed by"). Without these, all of it
+# ended up inside the last clause. The annexure word must be in capitals, or start a title line
+# ("Exhibit A", "Schedule 2 Rent Payable"), so a wrapped "Exhibit A and the Customer shall" is not one.
+_ANNEX_CAPS_RE = re.compile(r"^\s*(?:ANNEXURE|ANNEX|SCHEDULE|APPENDIX|EXHIBIT)\b")
+_ANNEX_TITLE_RE = re.compile(r"^\s*(?:Annexure|Annex|Schedule|Appendix|Exhibit)[\s\-‐-―:]*(?:[IVXLC]+|\d{1,3}|[A-Z])\b")
+_SIGNATURE_RE = re.compile(
+    r"^\s*(?:IN\s+WITNESS\s+WHERE(?:OF|AS)|WITNESS(?:ES)?\s*:|SIGNED\b|Signed\s+(?:and\s+delivered\s+)?(?:by|for)\b)",
+    re.IGNORECASE,
+)
+
 
 class _NumberingTracker:
     """Accepts a numbered line as a clause boundary only if it continues the
@@ -99,6 +110,45 @@ def _find_boundaries(lines: list[str]) -> list[int]:
             if not num[0].isdigit() or sections.accept(num):
                 boundaries.append(i)
     return boundaries
+
+
+def _back_matter_boundaries(lines: list[str], after: int) -> list[int]:
+    """Annexures and the signature section after line `after` (the last clause's
+    first line). Each annexure starts a block; the signature section starts one
+    block that runs on (WITNESSES, names, signatures) until the next annexure."""
+    boundaries = []
+    in_signatures = False
+    for i in range(after + 1, len(lines)):
+        if _ANNEX_CAPS_RE.match(lines[i]) or (_ANNEX_TITLE_RE.match(lines[i]) and is_heading_only(lines[i])):
+            boundaries.append(i)
+            in_signatures = False
+        elif not in_signatures and _SIGNATURE_RE.match(lines[i]):
+            boundaries.append(i)
+            in_signatures = True
+    return boundaries
+
+
+_SEGMENT_SPLIT_RE = re.compile(r"\n|(?<=[.;:])\s+(?=[A-Z(])")
+MIN_PROSE_WORDS = 10
+
+
+def _is_prose(segment: str) -> bool:
+    # a sentence, not "(Name of the Witness)", "AMERICAN INTERNATIONAL GROUP, INC." or "By: /s/ ..."
+    words = segment.split()
+    return len(words) >= MIN_PROSE_WORDS and sum(w[0].islower() for w in words) >= MIN_PROSE_WORDS // 2
+
+
+def is_signature_block(text: str) -> bool:
+    """The execution and witness section with nothing to simplify: the "IN WITNESS
+    WHEREOF the parties have signed" formula, then only names, titles and signature
+    lines. A section that goes on to say something ("The undersigned Trustee has
+    signed not individually ...") is a clause and is simplified like one."""
+    if not _SIGNATURE_RE.match(text):
+        return False
+    # the formula runs to its first full stop or colon, often wrapped over lines
+    formula_end = re.search(r"[.:](?=\s|$)", text)
+    rest = text[formula_end.end() :] if formula_end else ""
+    return not any(_is_prose(s) for s in _SEGMENT_SPLIT_RE.split(rest) if s.strip())
 
 
 def _previous_line_finished(lines: list[str], i: int) -> bool:
@@ -198,6 +248,8 @@ def split_clauses(text: str) -> list[Clause]:
        "Preamble" clause — it usually names the parties);
     2. ALL-CAPS headings, for unnumbered contracts;
     3. paragraphs.
+    In 1 and 2, annexures and the signature section after the last clause
+    become blocks of their own.
     Every word of `text` ends up in exactly one clause, in order (a line may
     be split where a clause number sits mid-line).
     """
@@ -207,11 +259,11 @@ def split_clauses(text: str) -> list[Clause]:
 
     boundaries = _find_boundaries(lines)
     if boundaries:
-        return _split_at(lines, boundaries)
+        return _split_at(lines, boundaries + _back_matter_boundaries(lines, boundaries[-1]))
 
     caps = [i for i, line in enumerate(lines) if _is_caps_heading(line)]
     if len(caps) >= 2:
-        return _split_at(lines, caps)
+        return _split_at(lines, sorted(set(caps + _back_matter_boundaries(lines, caps[-1]))))
 
     return [
         Clause(id=f"clause_{i + 1}", heading=None, text=paragraph)

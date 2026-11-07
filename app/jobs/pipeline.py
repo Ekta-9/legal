@@ -10,7 +10,7 @@ from app.llm.groq_client import GroqClient
 from app.llm.simplify import ClauseCache, CompletesPrompts, simplify_clauses
 from app.llm.verify import make_verifier
 from app.models.schemas import ClauseOutline, GlossaryMatch, JobStatus, SimplifiedClause
-from app.parsing.clause_splitter import is_heading_only, split_clauses
+from app.parsing.clause_splitter import is_heading_only, is_signature_block, split_clauses
 from app.parsing.extract import ExtractionError, extract
 from app.rag.document_context import attach_context
 from app.rag.glossary_store import GlossaryStore
@@ -133,12 +133,19 @@ async def _process_document(job_id: str, filename: str, content: bytes) -> None:
         logger.exception("Job %s: context retrieval failed, continuing without it", job_id)
 
     outline = [
-        ClauseOutline(id=c.id, heading=c.heading, text=c.text, context=c.context, heading_only=is_heading_only(c.text))
+        ClauseOutline(
+            id=c.id,
+            heading=c.heading,
+            text=c.text,
+            context=c.context,
+            heading_only=is_heading_only(c.text),
+            signature_block=is_signature_block(c.text),
+        )
         for c in clauses
     ]
     job_manager.set_clauses(job_id, outline)
-    headings = {c.id for c in outline if c.heading_only}
-    clauses = [c for c in clauses if c.id not in headings]  # titles have nothing to simplify
+    skipped = {c.id for c in outline if c.skipped}
+    clauses = [c for c in clauses if c.id not in skipped]  # titles and signature lines have nothing to simplify
     if not clauses:
         job_manager.set_status(job_id, JobStatus.DONE)
         return

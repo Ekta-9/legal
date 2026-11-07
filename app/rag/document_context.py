@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass, field
 
 from app.models.schemas import Clause, ClauseContext
-from app.parsing.clause_splitter import PREAMBLE_HEADING, is_heading_only
+from app.parsing.clause_splitter import PREAMBLE_HEADING, is_heading_only, is_signature_block
 
 MAX_CONTEXT_CHARS = 1500  # per clause, across parties + definitions + referenced sections
 MAX_PARTY_CHARS = 160  # a party's name matters; its full address doesn't
@@ -315,8 +315,8 @@ def retrieve_clause_context(clause: Clause, context: DocumentContext) -> ClauseC
     result = ClauseContext()
     budget = MAX_CONTEXT_CHARS
     clause_text = _collapse(clause.text)
-    if is_heading_only(clause.text):
-        return None  # "4    REVENUES" / "Article 2 Term of Agreement": a title, nothing to interpret
+    if is_heading_only(clause.text) or is_signature_block(clause.text):
+        return None  # "4    REVENUES" / "Article 2 Term of Agreement" / names and signatures: nothing to interpret
 
     parties = context.parties if clause.heading != PREAMBLE_HEADING else []  # the preamble names them itself
     if len(parties) > MAX_UNMENTIONED_PARTIES:
