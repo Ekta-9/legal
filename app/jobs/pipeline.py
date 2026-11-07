@@ -97,9 +97,9 @@ def user_message(error: Exception) -> str:
     if is_daily_limit(error):
         wait = _wait_minutes(str(error))
         when = f"in about {wait} minute{'s' if wait != 1 else ''}" if wait else "later"
-        return f"The free Groq quota for today is used up for this model. Try again {when}."
+        return f"The server is busy. Please try again {when}."
     if isinstance(error, groq.RateLimitError):
-        return "Groq's rate limit was reached. Wait a minute and try again."
+        return "The server is busy. Please try again in a minute."
     if isinstance(error, groq.APIConnectionError):
         return "Could not reach Groq. Check your internet connection and try again."
     if isinstance(error, groq.APIStatusError):

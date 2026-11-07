@@ -292,4 +292,4 @@ def test_daily_limit_message_says_how_long_to_wait():
     from app.jobs.pipeline import user_message
 
     error = RateLimitError(DAILY_LIMIT_MESSAGE, response=_error_with_status(RateLimitError, 429).response, body=None)
-    assert user_message(error) == "The free Groq quota for today is used up for this model. Try again in about 14 minutes."
+    assert user_message(error) == "The server is busy. Please try again in about 14 minutes."

@@ -313,4 +313,4 @@ async def test_clauses_lost_to_the_daily_limit_say_why(async_client, with_fake_g
 
     assert result["status"] == JobStatus.DONE.value
     assert [c["failed"] for c in sorted(result["completed"], key=lambda c: c["id"])] == [False, True]
-    assert result["error"] == "The free Groq quota for today is used up for this model. Try again in about 5 minutes."
+    assert result["error"] == "The server is busy. Please try again in about 5 minutes."
