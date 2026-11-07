@@ -122,3 +122,64 @@ async def test_make_verifier_binds_client_and_matches_verify_fn_signature():
 
     assert result[0].simplified == "fixed"
     assert result[0].self_check is False
+
+
+RENT = Clause(id="clause_1", text="Pay Rs. 15,000 by the 5th of each month.")
+
+
+@pytest.mark.asyncio
+async def test_clause_that_lost_a_number_is_retried_even_if_the_model_was_confident():
+    first = SimplifiedClause(
+        id="clause_1", original=RENT.text, simplified="Pay rent monthly.", self_check=False, missing_numbers=["15,000", "5"]
+    )
+    client = ScriptedClient(
+        [_response([{"clause_id": "clause_1", "simplified": "Pay Rs 15,000 by the 5th of every month.", "self_check": False}])]
+    )
+
+    result = await retry_flagged_clauses([first], [RENT], client)
+
+    assert len(client.calls) == 1
+    assert result[0].missing_numbers == []
+
+
+@pytest.mark.asyncio
+async def test_retry_that_loses_more_numbers_is_discarded():
+    first = SimplifiedClause(
+        id="clause_1", original=RENT.text, simplified="Pay Rs 15,000 monthly.", self_check=False, missing_numbers=["5"]
+    )
+    client = ScriptedClient([_response([{"clause_id": "clause_1", "simplified": "Pay rent.", "self_check": False}])])
+
+    result = await retry_flagged_clauses([first], [RENT], client)
+
+    assert result[0].simplified == "Pay Rs 15,000 monthly."
+    assert result[0].missing_numbers == ["5"]
+
+
+CAP = Clause(id="clause_1", text="Notwithstanding anything else in this Agreement, liability shall not exceed the fees.")
+
+
+@pytest.mark.asyncio
+async def test_lost_override_is_retried_with_the_problem_named_and_the_fix_kept():
+    from app.llm.qualifiers import lost_qualifiers
+
+    reversed_text = "Except as otherwise stated, liability cannot exceed the fees."
+    first = SimplifiedClause(
+        id="clause_1", original=CAP.text, simplified=reversed_text, self_check=False,
+        lost_qualifiers=lost_qualifiers(CAP.text, reversed_text),
+    )
+    client = ScriptedClient(
+        [_response([{"clause_id": "clause_1", "simplified": "Regardless of any other term, liability cannot exceed the fees.", "self_check": False}])]
+    )
+
+    result = await retry_flagged_clauses([first], [CAP], client)
+
+    retry_items = json.loads(client.calls[0].split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+    assert 'override ("notwithstanding")' in retry_items[0]["previous_attempt_problem"]
+    assert result[0].simplified.startswith("Regardless")
+    assert result[0].lost_qualifiers == []
+
+
+def test_a_first_attempt_prompt_never_carries_a_retry_note():
+    from app.llm.simplify import build_prompt
+
+    assert "previous_attempt_problem" not in build_prompt([CAP])

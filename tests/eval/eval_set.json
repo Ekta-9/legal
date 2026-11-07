@@ -1,0 +1,1157 @@
+{
+  "_comment": "Hand-written evaluation contracts. For each clause heading, must_mention lists concepts the plain version must keep; each concept is a list of acceptable words (any one counts, case-insensitive). Numbers are checked separately by app/llm/facts.py. expect_unsure lists clauses that are genuinely ambiguous, where the right behaviour is self_check=true. expect_context lists concepts that can only come from elsewhere in the contract (definitions, party names), i.e. what document-context retrieval is for. rental_agreement_dense (added 2026-11-07) follows the layout of a common Indian rental template: a dense preamble (S/o, 'hereinafter jointly and severally called', heirs and successors, WHEREAS recitals), 'That the ...' clauses, an annexure and a signature page, which the earlier contracts lacked.",
+  "documents": [
+    {
+      "name": "rental_agreement",
+      "text": "This Leave and Licence Agreement is made on 1 April 2026 between Ravi Kumar, residing at 14 MG Road, Pune (hereinafter the \"Licensor\"), and Priya Shah, residing at 7 FC Road, Pune (hereinafter the \"Licensee\").\n\n1. Definitions\n\"Premises\" means the flat bearing No. 302, Sunrise Apartments, Baner, Pune.\n\"Licence Fee\" means the monthly sum payable under Clause 3.\n\n2. Term\nThis licence shall be for a period of 11 (eleven) months commencing from 1 April 2026, unless terminated earlier in accordance with Clause 8.\n\n3. Licence Fee\nThe Licensee shall pay the Licensor a Licence Fee of Rs. 25,000/- per month on or before the 5th day of each calendar month by bank transfer.\n\n4. Late Payment\nIf the Licence Fee is not received within 7 days of its due date, the Licensee shall pay interest at the rate of 2% per month on the outstanding amount, without prejudice to any other remedy of the Licensor.\n\n5. Security Deposit\nThe Licensee has paid an interest-free refundable security deposit of Rs. 75,000/-, which shall be refunded within 30 days of the Licensee vacating the Premises, after deducting any unpaid dues or the cost of repairing damage beyond normal wear and tear.\n\n6. Maintenance\nThe Licensee shall bear the cost of electricity and minor repairs not exceeding Rs. 2,000/- per instance. Structural repairs and society maintenance charges shall be borne by the Licensor.\n\n7. Use of Premises\nThe Licensee shall use the Premises solely for residential purposes and shall not sub-let, assign or part with possession of the Premises or any part thereof without the prior written consent of the Licensor.\n\n8. Termination\nEither party may terminate this licence by giving 1 (one) month's prior written notice to the other party. The Licensor may terminate this licence forthwith if the Licence Fee remains unpaid for 2 consecutive months.\n\n9. Indemnity\nThe Licensee shall indemnify the Licensor against any loss or damage caused to the Premises by the negligence of the Licensee or the Licensee's guests, save and except damage caused by fire, flood or other events beyond the Licensee's reasonable control.\n\n10. Governing Law\nThis Agreement shall be governed by the laws of India and the courts at Pune shall have exclusive jurisdiction.",
+      "expect": {
+        "Preamble": [
+          [
+            "Ravi"
+          ],
+          [
+            "Priya"
+          ]
+        ],
+        "1. Definitions": [
+          [
+            "flat",
+            "apartment",
+            "premises"
+          ],
+          [
+            "Baner",
+            "Sunrise"
+          ],
+          [
+            "month"
+          ]
+        ],
+        "2. Term": [
+          [
+            "11",
+            "eleven"
+          ],
+          [
+            "unless",
+            "earlier",
+            "before",
+            "sooner"
+          ]
+        ],
+        "3. Licence Fee": [
+          [
+            "25,000",
+            "25000"
+          ],
+          [
+            "5th",
+            "fifth",
+            "5"
+          ],
+          [
+            "bank"
+          ]
+        ],
+        "4. Late Payment": [
+          [
+            "interest"
+          ],
+          [
+            "2%",
+            "2 %",
+            "two percent"
+          ],
+          [
+            "7",
+            "seven"
+          ]
+        ],
+        "5. Security Deposit": [
+          [
+            "75,000",
+            "75000"
+          ],
+          [
+            "30",
+            "thirty"
+          ],
+          [
+            "damage",
+            "repair"
+          ],
+          [
+            "wear and tear",
+            "wear"
+          ],
+          [
+            "unpaid",
+            "dues",
+            "owe"
+          ]
+        ],
+        "6. Maintenance": [
+          [
+            "electricity"
+          ],
+          [
+            "2,000",
+            "2000"
+          ],
+          [
+            "structural"
+          ],
+          [
+            "society"
+          ]
+        ],
+        "7. Use of Premises": [
+          [
+            "residential",
+            "residence",
+            "live",
+            "living",
+            "home"
+          ],
+          [
+            "sub-let",
+            "sublet",
+            "rent out",
+            "sub-lease"
+          ],
+          [
+            "written"
+          ],
+          [
+            "consent",
+            "permission",
+            "approval"
+          ]
+        ],
+        "8. Termination": [
+          [
+            "notice"
+          ],
+          [
+            "written",
+            "writing"
+          ],
+          [
+            "2",
+            "two"
+          ],
+          [
+            "unpaid",
+            "not paid",
+            "doesn't pay",
+            "does not pay",
+            "fails to pay"
+          ]
+        ],
+        "9. Indemnity": [
+          [
+            "negligence",
+            "careless"
+          ],
+          [
+            "guest"
+          ],
+          [
+            "fire"
+          ],
+          [
+            "flood"
+          ],
+          [
+            "except",
+            "not responsible",
+            "not liable",
+            "doesn't cover",
+            "does not cover",
+            "unless",
+            "isn't responsible",
+            "is not responsible",
+            "not have to"
+          ]
+        ],
+        "10. Governing Law": [
+          [
+            "India"
+          ],
+          [
+            "Pune"
+          ],
+          [
+            "court"
+          ]
+        ]
+      },
+      "expect_context": {
+        "3. Licence Fee": [
+          [
+            "Priya"
+          ],
+          [
+            "Ravi"
+          ]
+        ],
+        "7. Use of Premises": [
+          [
+            "flat",
+            "apartment",
+            "302",
+            "Sunrise"
+          ]
+        ],
+        "8. Termination": [
+          [
+            "Priya"
+          ],
+          [
+            "Ravi"
+          ]
+        ],
+        "9. Indemnity": [
+          [
+            "flat",
+            "apartment",
+            "302",
+            "Sunrise"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "employment_agreement",
+      "text": "1. Appointment\nThe Company hereby appoints the Employee as Senior Analyst with effect from 1 June 2026, subject to satisfactory verification of the Employee's educational certificates and previous employment records.\n\n2. Probation\nThe Employee shall be on probation for a period of 6 (six) months, which may be extended by up to 3 (three) months at the sole discretion of the Company. During probation, either party may terminate employment by giving 15 days' written notice.\n\n3. Remuneration\nThe Employee shall be paid a gross annual salary of Rs. 12,00,000/-, payable in equal monthly instalments, subject to deduction of applicable taxes at source.\n\n4. Leave\nThe Employee shall be entitled to 18 days of paid leave per calendar year. Unused leave of up to 10 days may be carried forward to the next year; any balance in excess thereof shall lapse.\n\n5. Confidentiality\nThe Employee shall not, during employment or at any time thereafter, disclose any Confidential Information of the Company to any third party, except as required by law or with the prior written consent of the Company.\n\n6. Non-Solicitation\nFor a period of 12 months after the termination of employment, the Employee shall not directly or indirectly solicit any client or employee of the Company.\n\n7. Termination\nAfter confirmation, either party may terminate employment by giving 60 days' written notice or payment of salary in lieu thereof. The Company may terminate employment without notice in the event of gross misconduct.",
+      "expect": {
+        "1. Appointment": [
+          [
+            "Senior Analyst"
+          ],
+          [
+            "verif",
+            "check"
+          ],
+          [
+            "certificate"
+          ]
+        ],
+        "2. Probation": [
+          [
+            "probation",
+            "trial"
+          ],
+          [
+            "6",
+            "six"
+          ],
+          [
+            "3",
+            "three"
+          ],
+          [
+            "15",
+            "fifteen"
+          ],
+          [
+            "extend"
+          ]
+        ],
+        "3. Remuneration": [
+          [
+            "12,00,000",
+            "1200000",
+            "12 lakh",
+            "1,200,000"
+          ],
+          [
+            "tax"
+          ],
+          [
+            "month"
+          ]
+        ],
+        "4. Leave": [
+          [
+            "18",
+            "eighteen"
+          ],
+          [
+            "10",
+            "ten"
+          ],
+          [
+            "carr",
+            "roll",
+            "next year"
+          ],
+          [
+            "lapse",
+            "lose",
+            "lost",
+            "expire",
+            "forfeit"
+          ]
+        ],
+        "5. Confidentiality": [
+          [
+            "confidential",
+            "secret"
+          ],
+          [
+            "law",
+            "legal"
+          ],
+          [
+            "consent",
+            "permission",
+            "approval"
+          ],
+          [
+            "after",
+            "thereafter",
+            "even when",
+            "even after",
+            "any time"
+          ]
+        ],
+        "6. Non-Solicitation": [
+          [
+            "12",
+            "twelve",
+            "one year",
+            "1 year"
+          ],
+          [
+            "client"
+          ],
+          [
+            "employee",
+            "staff",
+            "worker"
+          ]
+        ],
+        "7. Termination": [
+          [
+            "60",
+            "sixty"
+          ],
+          [
+            "notice"
+          ],
+          [
+            "salary",
+            "pay"
+          ],
+          [
+            "misconduct"
+          ],
+          [
+            "without notice",
+            "immediately",
+            "no notice"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "services_agreement_hard",
+      "text": "This Logistics Services Agreement is made between Northwind Logistics Pvt. Ltd. (the \"Supplier\") and Kaveri Foods Ltd. (the \"Customer\").\n\n1. Definitions\n\"Business Day\" means any day other than a Saturday, Sunday or a public holiday in Mumbai.\n\"Losses\" means losses, damages, costs and expenses, including reasonable legal fees, but excluding indirect or consequential loss.\n\n2. Payment\nThe Customer shall pay each undisputed invoice within 45 days of receipt. The Customer may withhold payment of any disputed portion of an invoice, provided that it notifies the Supplier in writing of the dispute, with reasons, within 10 Business Days of receiving the invoice; failing such notice, the invoice shall be deemed accepted.\n\n3. Limitation of Liability\nNotwithstanding anything to the contrary in this Agreement, neither party's aggregate liability under this Agreement shall exceed the total fees paid in the 12 months preceding the claim; provided, however, that this limitation shall not apply to (a) a party's indemnity obligations under Clause 7, (b) breach of Clause 8, or (c) fraud or wilful misconduct.\n\n4. Exclusion of Indirect Loss\nExcept in the case of fraud, neither party shall be liable for any loss of profit, loss of business or any indirect or consequential loss, whether arising in contract, tort (including negligence) or otherwise, even if advised of the possibility of such loss.\n\n5. Service Level\nThe Supplier shall deliver at least 98% of consignments within 48 hours of collection. If the Supplier fails to meet this service level in any calendar month, other than as a result of a Force Majeure Event or a failure by the Customer to provide accurate dispatch information, the Supplier shall pay Service Credits under Clause 6.\n\n6. Service Credits\nService Credits shall be 2% of the monthly fees for each full percentage point by which performance falls below 98%, subject to a maximum of 20% of the monthly fees. Service Credits shall be the Customer's sole and exclusive remedy for failure to meet the service level, save where the failure continues for 3 consecutive months, in which case the Customer may terminate this Agreement under Clause 9.\n\n7. Indemnity\nThe Supplier shall indemnify the Customer against all Losses arising from any third-party claim that the Services infringe any intellectual property right, save to the extent that the claim arises from the Supplier's compliance with the Customer's specifications or from any modification made by the Customer.\n\n8. Confidentiality\nEach party shall keep confidential all information received from the other party, except information which (a) is or becomes public other than through breach of this Agreement, (b) was lawfully known to the receiving party before disclosure, or (c) is required to be disclosed by law, in which case the receiving party shall, where legally permitted, give the other party prompt notice.\n\n9. Termination\nEither party may terminate this Agreement with immediate effect by written notice if the other party commits a material breach which, if capable of remedy, is not remedied within 30 days of written notice requiring it to be remedied. Termination shall not affect any rights or liabilities that have accrued before termination.\n\n10. Assignment\nNeither party may assign this Agreement without the prior written consent of the other party, such consent not to be unreasonably withheld, except that the Supplier may assign this Agreement to an Affiliate without consent.\n\n11. Price Review\nThe Supplier may increase the fees once in each contract year by giving not less than 60 days' notice, provided that the increase shall not exceed the lower of 5% and the percentage increase in CPI over the preceding 12 months.\n\n12. Delivery Costs\nThe Customer shall reimburse the Supplier for fuel surcharges and tolls incurred on delivery routes outside Mumbai and Pune exceeding 50 kilometres.",
+      "expect": {
+        "Preamble": [
+          [
+            "Northwind"
+          ],
+          [
+            "Kaveri"
+          ]
+        ],
+        "1. Definitions": [
+          [
+            "Saturday"
+          ],
+          [
+            "Sunday"
+          ],
+          [
+            "holiday"
+          ],
+          [
+            "legal fees",
+            "lawyer",
+            "legal cost"
+          ],
+          [
+            "indirect",
+            "consequential"
+          ]
+        ],
+        "2. Payment": [
+          [
+            "undisputed",
+            "not disputed",
+            "doesn't dispute",
+            "does not dispute",
+            "not in dispute"
+          ],
+          [
+            "45"
+          ],
+          [
+            "withhold",
+            "hold back",
+            "not pay",
+            "doesn't have to pay",
+            "does not have to pay",
+            "can hold",
+            "delay"
+          ],
+          [
+            "writing",
+            "written",
+            "writes"
+          ],
+          [
+            "reason",
+            "explain"
+          ],
+          [
+            "10"
+          ],
+          [
+            "business day",
+            "working day"
+          ],
+          [
+            "deemed",
+            "accepted",
+            "treated as",
+            "considered"
+          ]
+        ],
+        "3. Limitation of Liability": [
+          [
+            "fees"
+          ],
+          [
+            "12"
+          ],
+          [
+            "notwithstanding",
+            "regardless",
+            "even if",
+            "despite",
+            "overrides",
+            "whatever else",
+            "no matter",
+            "anything else"
+          ],
+          [
+            "indemn"
+          ],
+          [
+            "confidential",
+            "clause 8"
+          ],
+          [
+            "fraud"
+          ],
+          [
+            "wilful",
+            "willful",
+            "deliberate",
+            "intentional"
+          ],
+          [
+            "not apply",
+            "except",
+            "exclud",
+            "other than",
+            "no limit",
+            "no cap",
+            "not limited",
+            "not capped",
+            "unlimited",
+            "doesn't apply",
+            "does not apply"
+          ]
+        ],
+        "4. Exclusion of Indirect Loss": [
+          [
+            "fraud"
+          ],
+          [
+            "profit"
+          ],
+          [
+            "indirect"
+          ],
+          [
+            "negligen",
+            "careless"
+          ],
+          [
+            "even if",
+            "even when",
+            "even though",
+            "knew",
+            "warned",
+            "told",
+            "aware"
+          ]
+        ],
+        "5. Service Level": [
+          [
+            "98"
+          ],
+          [
+            "48"
+          ],
+          [
+            "month"
+          ],
+          [
+            "force majeure",
+            "beyond",
+            "outside",
+            "control"
+          ],
+          [
+            "dispatch",
+            "information",
+            "details"
+          ],
+          [
+            "credit"
+          ]
+        ],
+        "6. Service Credits": [
+          [
+            "2%",
+            "2 %",
+            "2 percent",
+            "2 per cent"
+          ],
+          [
+            "each",
+            "every",
+            "per "
+          ],
+          [
+            "20"
+          ],
+          [
+            "maximum",
+            "cap",
+            "no more than",
+            "up to",
+            "at most",
+            "not exceed",
+            "max"
+          ],
+          [
+            "sole",
+            "only"
+          ],
+          [
+            "3",
+            "three"
+          ],
+          [
+            "terminate",
+            "end the",
+            "cancel"
+          ]
+        ],
+        "7. Indemnity": [
+          [
+            "third"
+          ],
+          [
+            "intellectual property",
+            "ip ",
+            "copyright",
+            "patent"
+          ],
+          [
+            "specification",
+            "instruction"
+          ],
+          [
+            "modif",
+            "change",
+            "alter"
+          ],
+          [
+            "except",
+            "unless",
+            "does not cover",
+            "doesn't cover",
+            "not responsible",
+            "not have to",
+            "won't",
+            "will not",
+            "not liable",
+            "exclud",
+            "not if",
+            "other than",
+            "does not apply",
+            "doesn't apply"
+          ]
+        ],
+        "8. Confidentiality": [
+          [
+            "public"
+          ],
+          [
+            "breach",
+            "breaking",
+            "violat"
+          ],
+          [
+            "already",
+            "before",
+            "previously",
+            "prior"
+          ],
+          [
+            "law",
+            "legal",
+            "court"
+          ],
+          [
+            "notice",
+            "notify",
+            "tell",
+            "inform"
+          ],
+          [
+            "where legally permitted",
+            "if allowed",
+            "if legally allowed",
+            "if the law allows",
+            "where allowed",
+            "if permitted",
+            "where permitted",
+            "legally permitted",
+            "allowed by law",
+            "law permits",
+            "lawful"
+          ]
+        ],
+        "9. Termination": [
+          [
+            "material",
+            "serious",
+            "major",
+            "significant"
+          ],
+          [
+            "30"
+          ],
+          [
+            "fix",
+            "remed",
+            "cure",
+            "correct"
+          ],
+          [
+            "if it can be",
+            "if capable",
+            "fixable",
+            "can be fixed",
+            "can't be fixed",
+            "cannot be fixed",
+            "if possible",
+            "if the breach can",
+            "can be cured",
+            "could be cured",
+            "can be remedied",
+            "could be remedied",
+            "cannot be remedied",
+            "can't be remedied",
+            "remedyable",
+            "remediable",
+            "curable",
+            "could be fixed"
+          ],
+          [
+            "immediate",
+            "right away",
+            "at once",
+            "straight away"
+          ],
+          [
+            "accrued",
+            "already",
+            "before",
+            "existing",
+            "earned",
+            "up to"
+          ]
+        ],
+        "10. Assignment": [
+          [
+            "assign",
+            "transfer"
+          ],
+          [
+            "written",
+            "writing"
+          ],
+          [
+            "consent",
+            "permission",
+            "approval",
+            "agree"
+          ],
+          [
+            "unreasonabl",
+            "reasonable",
+            "without good reason",
+            "without a good reason"
+          ],
+          [
+            "affiliate",
+            "group compan",
+            "related compan",
+            "sister compan"
+          ]
+        ],
+        "11. Price Review": [
+          [
+            "once"
+          ],
+          [
+            "year"
+          ],
+          [
+            "60"
+          ],
+          [
+            "5%",
+            "5 %",
+            "5 percent",
+            "5 per cent"
+          ],
+          [
+            "cpi",
+            "inflation",
+            "consumer price"
+          ],
+          [
+            "lower",
+            "smaller",
+            "less",
+            "whichever"
+          ]
+        ],
+        "12. Delivery Costs": [
+          [
+            "fuel"
+          ],
+          [
+            "toll"
+          ],
+          [
+            "50"
+          ],
+          [
+            "outside"
+          ]
+        ]
+      },
+      "expect_unsure": [
+        "12. Delivery Costs"
+      ],
+      "expect_context": {
+        "2. Payment": [
+          [
+            "working day",
+            "weekday",
+            "weekend",
+            "Saturday",
+            "Sunday",
+            "holiday"
+          ]
+        ],
+        "3. Limitation of Liability": [
+          [
+            "confidential"
+          ]
+        ],
+        "7. Indemnity": [
+          [
+            "legal fee",
+            "legal cost",
+            "lawyer"
+          ],
+          [
+            "indirect",
+            "consequential"
+          ]
+        ],
+        "10. Assignment": [
+          [
+            "Northwind"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "rental_agreement_dense",
+      "text": "RENTAL AGREEMENT\nThis RENTAL AGREEMENT is executed at Pune on this 10th day of March, 2026 by\nand between:\nMr. Anil Deshmukh,\nS/o Mr. Prakash Deshmukh,\nresiding at 12 Law College Road, Erandwane, Pune\n(hereinafter jointly and severally called the \"OWNER\", which expression shall\ninclude their\nheirs, legal representatives, successors and assigns) of the ONE PART:\nAND, in favour of:\nMs. Neha Kulkarni,\nD/o Mr. Sunil Kulkarni,\nWorking at Infosys Ltd., Hinjewadi, Pune\nhaving a permanent address at 3 Station Road, Nashik\n(hereinafter called the \"TENANT\", which expression shall include its legal\nrepresentatives,\nsuccessors and assigns) of the OTHER PART.\nWHEREAS the Owner is the absolute owner of the property situated at Flat No. 504,\nGreen Valley Society, Baner, Pune as detailed in Annexure-I, hereinafter referred to as\n\"Demised Premises\".\nWHEREAS the Tenant has requested the Owner to grant Rent with respect to the Schedule\nPremises and the Owner has agreed to rent out to the Tenant the Property with one\nfour-wheeler parking space for residential purposes only, on the following\nterms and conditions:\nNOW THIS DEED WITNESSETH AS FOLLOWS:\n1. The rent in respect of the \"Demised Premises\" shall commence from 1st April, 2026\nand shall be valid till 28th February, 2027. Thereafter, the same may be\nextended further on mutual consent of both the parties.\n2. That the Tenant shall pay to the Owner a monthly rent of Rs. 22,000/-,\nexcluding electricity and water bill. The rent shall be paid on or before 7th day of each month\nwithout fail.\n3. That the Tenant shall pay to the Owner an interest-free security deposit of Rs. 66,000/-,\nwhich shall be refunded by the Owner at the time of the Tenant vacating the Demised Premises,\nafter deducting arrears of rent and the cost of damages, if any, save and except normal wear\nand tear.\n4. That in the event of the Tenant committing default in payment of rent for two consecutive\nmonths, the Owner shall be entitled to terminate this agreement forthwith and take back\npossession of the Demised Premises, notwithstanding anything to the contrary contained herein.\n5. That the Tenant shall not sub-let, assign or otherwise part with the possession of the whole\nor any part of the Demised Premises without the prior written consent of the Owner.\n6. That no structural additions or alterations shall be made by the Tenant in the premises\nwithout the prior written consent of the Owner but the Tenant can install air-conditioners in the\nspace provided and other electrical gadgets at his own cost.\n7. That either party may terminate this agreement by giving one month's notice in writing to the\nother party; provided that if the Tenant vacates the Demised Premises within the lock-in period\nof six months from the commencement of the rent, the Tenant shall pay the rent for the unexpired\nportion of the lock-in period.\n8. That the Owner shall be responsible for major repairs including structural repairs and leakage,\nand the day-to-day minor repairs shall be carried out by the Tenant at his own cost.\n9. That the Tenant shall permit the Owner or his authorised agent to enter and inspect the Demised\nPremises at all reasonable times upon giving 24 hours' prior notice.\n10. That the Rent Agreement will be registered in front of the Registrar and the charges towards\nstamp duty, court fee & lawyer/coordinator will be equally borne by the Owner and Tenant.\nANNEXURE-I\nFlat No. 504, Green Valley Society, Baner, Pune, consisting of 2 bedrooms, living\nroom, kitchen and inbuilt fittings & fixtures and inventory of\n4 fans, 6 CFL lights, 1 geyser and 2 mirrors.\nIN WITNESS WHEREOF BOTH PARTIES AGREES AND SIGNS THIS AGREEMENT\nON THIS DAY AND YEAR\nWITNESSES:\n1. Rahul Joshi\n(Signature of the Witness)\n2. Meera Patil\n(Signature of the Witness)\n(Signature of the Owner)\n(Signature of the Tenant)\nAnil Deshmukh\nNeha Kulkarni\nOWNER\nTENANT",
+      "expect": {
+        "Preamble": [
+          [
+            "Anil"
+          ],
+          [
+            "Neha"
+          ],
+          [
+            "Pune"
+          ],
+          [
+            "owner",
+            "landlord"
+          ],
+          [
+            "tenant"
+          ],
+          [
+            "504",
+            "Green Valley"
+          ],
+          [
+            "residential",
+            "live",
+            "living",
+            "home"
+          ],
+          [
+            "parking"
+          ],
+          [
+            "heir",
+            "successor",
+            "takes over",
+            "take over",
+            "inherit"
+          ]
+        ],
+        "1. The rent in respect of the \"Demised Premises\" shall commence from 1st April, 2026": [
+          [
+            "1 April",
+            "1st April",
+            "April 1"
+          ],
+          [
+            "28 February",
+            "28th February",
+            "February 28"
+          ],
+          [
+            "extend",
+            "renew"
+          ],
+          [
+            "both",
+            "mutual",
+            "agree"
+          ]
+        ],
+        "2. That the Tenant shall pay to the Owner a monthly rent of Rs. 22,000/-,": [
+          [
+            "22,000",
+            "22000"
+          ],
+          [
+            "electricity"
+          ],
+          [
+            "water"
+          ],
+          [
+            "7th",
+            "7 ",
+            "seventh"
+          ],
+          [
+            "month"
+          ]
+        ],
+        "3. That the Tenant shall pay to the Owner an interest-free security deposit of Rs. 66,000/-,": [
+          [
+            "66,000",
+            "66000"
+          ],
+          [
+            "interest"
+          ],
+          [
+            "refund",
+            "return",
+            "give back"
+          ],
+          [
+            "arrears",
+            "unpaid",
+            "owed",
+            "due"
+          ],
+          [
+            "damage"
+          ],
+          [
+            "wear and tear",
+            "wear"
+          ]
+        ],
+        "4. That in the event of the Tenant committing default in payment of rent for two consecutive": [
+          [
+            "two",
+            "2 "
+          ],
+          [
+            "consecutive",
+            "in a row",
+            "back-to-back"
+          ],
+          [
+            "terminate",
+            "end the",
+            "cancel"
+          ],
+          [
+            "immediate",
+            "right away",
+            "at once",
+            "straight away",
+            "without notice"
+          ],
+          [
+            "possession",
+            "take back",
+            "back"
+          ],
+          [
+            "notwithstanding",
+            "regardless",
+            "even if",
+            "despite",
+            "overrides",
+            "whatever else",
+            "no matter",
+            "anything else"
+          ]
+        ],
+        "5. That the Tenant shall not sub-let, assign or otherwise part with the possession of the whole": [
+          [
+            "sub-let",
+            "sublet",
+            "rent out",
+            "sub-lease"
+          ],
+          [
+            "assign",
+            "transfer"
+          ],
+          [
+            "part",
+            "any portion",
+            "portion"
+          ],
+          [
+            "written",
+            "writing"
+          ],
+          [
+            "consent",
+            "permission",
+            "approval"
+          ]
+        ],
+        "6. That no structural additions or alterations shall be made by the Tenant in the premises": [
+          [
+            "structural",
+            "structure"
+          ],
+          [
+            "written",
+            "writing"
+          ],
+          [
+            "consent",
+            "permission",
+            "approval"
+          ],
+          [
+            "air-condition",
+            "air condition",
+            "ac "
+          ],
+          [
+            "own cost",
+            "own expense",
+            "pay for",
+            "at his cost",
+            "at their cost",
+            "at her cost"
+          ]
+        ],
+        "7. That either party may terminate this agreement by giving one month's notice in writing to the": [
+          [
+            "one month",
+            "1 month",
+            "30 days"
+          ],
+          [
+            "notice"
+          ],
+          [
+            "written",
+            "writing"
+          ],
+          [
+            "lock-in",
+            "lock in",
+            "minimum",
+            "six-month period",
+            "6-month period"
+          ],
+          [
+            "six",
+            "6"
+          ],
+          [
+            "unexpired",
+            "remaining",
+            "rest of",
+            "remainder",
+            "balance"
+          ]
+        ],
+        "8. That the Owner shall be responsible for major repairs including structural repairs and leakage,": [
+          [
+            "major"
+          ],
+          [
+            "structural"
+          ],
+          [
+            "leak"
+          ],
+          [
+            "minor",
+            "small"
+          ],
+          [
+            "own cost",
+            "own expense",
+            "pay for",
+            "at his cost",
+            "at their cost",
+            "at her cost"
+          ]
+        ],
+        "9. That the Tenant shall permit the Owner or his authorised agent to enter and inspect the Demised": [
+          [
+            "inspect",
+            "check",
+            "visit",
+            "enter"
+          ],
+          [
+            "reasonable"
+          ],
+          [
+            "24"
+          ],
+          [
+            "notice"
+          ]
+        ],
+        "10. That the Rent Agreement will be registered in front of the Registrar and the charges towards": [
+          [
+            "regist"
+          ],
+          [
+            "stamp duty"
+          ],
+          [
+            "court fee"
+          ],
+          [
+            "lawyer",
+            "coordinator"
+          ],
+          [
+            "equal",
+            "half",
+            "50",
+            "split"
+          ]
+        ],
+        "ANNEXURE-I": [
+          [
+            "504",
+            "Green Valley"
+          ],
+          [
+            "2 bedroom",
+            "two bedroom"
+          ],
+          [
+            "kitchen"
+          ],
+          [
+            "4 fans",
+            "four fans",
+            "4 ceiling fans"
+          ],
+          [
+            "6 CFL",
+            "six CFL",
+            "6 light",
+            "six light"
+          ],
+          [
+            "geyser",
+            "water heater"
+          ],
+          [
+            "2 mirrors",
+            "two mirrors"
+          ]
+        ]
+      },
+      "expect_context": {
+        "2. That the Tenant shall pay to the Owner a monthly rent of Rs. 22,000/-,": [
+          [
+            "Neha"
+          ],
+          [
+            "Anil"
+          ]
+        ],
+        "5. That the Tenant shall not sub-let, assign or otherwise part with the possession of the whole": [
+          [
+            "504",
+            "Green Valley",
+            "flat"
+          ]
+        ],
+        "9. That the Tenant shall permit the Owner or his authorised agent to enter and inspect the Demised": [
+          [
+            "Neha"
+          ],
+          [
+            "Anil"
+          ]
+        ]
+      }
+    }
+  ]
+}

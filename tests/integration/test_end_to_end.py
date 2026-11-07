@@ -98,3 +98,219 @@ async def test_docx_fixture_flows_through_full_pipeline(async_client, with_fake_
 
     assert result["status"] == JobStatus.DONE.value
     assert result["total_clauses"] == 3
+
+
+@pytest.mark.asyncio
+async def test_retrieved_document_context_reaches_the_llm_prompt(async_client, with_fake_groq):
+    import json
+
+    text = (
+        'This Agreement is between Acme Ltd (the "Provider") and John Doe (the "Client").\n\n'
+        '1. Definitions\n"Fee" means INR 50,000 per month.\n\n'
+        "2. Payment\nThe Client shall pay the Fee, subject to Section 3.\n\n"
+        "3. Disputes\nDisputed invoices are not payable until resolved."
+    )
+    upload = await async_client.post("/api/documents", data={"text": text})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.DONE.value
+    items = json.loads(with_fake_groq.prompts[0].split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+    payment = next(i for i in items if i["clause_id"] == "clause_3")
+    assert payment["context"]["parties"] == ["Provider: Acme Ltd", "Client: John Doe"]
+    assert payment["context"]["definitions"] == {"Fee": '"Fee" means INR 50,000 per month'}
+    assert "Disputed invoices" in payment["context"]["referenced_sections"]["3"]
+    # the page gets the same context with the clause outline, to show under the clause
+    outline = next(c for c in result["clauses"] if c["id"] == "clause_3")
+    assert outline["context"]["parties"] == payment["context"]["parties"]
+    assert outline["context"]["definitions"] == payment["context"]["definitions"]
+    assert outline["context"]["referenced_sections"] == payment["context"]["referenced_sections"]
+
+
+@pytest.mark.asyncio
+async def test_clause_the_model_never_returns_is_reported_as_failed_with_its_original(async_client, with_fake_groq):
+    import json
+
+    from app.jobs import pipeline as pipeline_module
+
+    class NeverReturnsClauseTwo:
+        def __init__(self):
+            self.prompts = []
+
+        async def complete(self, prompt):
+            self.prompts.append(prompt)
+            items = json.loads(prompt.split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+            return json.dumps(
+                {"results": [{"clause_id": c["clause_id"], "simplified": "ok", "self_check": False} for c in items if c["clause_id"] != "clause_2"]}
+            )
+
+    pipeline_module.set_client(NeverReturnsClauseTwo())
+    upload = await async_client.post("/api/documents", data={"text": "1. Rent\nPay monthly.\n\n2. Term\nOne year.\n\n3. Notice\nIn writing."})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.DONE.value
+    assert [c["id"] for c in result["clauses"]] == ["clause_1", "clause_2", "clause_3"]
+    completed = {c["id"]: c for c in result["completed"]}
+    assert set(completed) == {"clause_1", "clause_2", "clause_3"}  # nothing silently vanishes
+    assert completed["clause_2"]["failed"] is True
+    assert completed["clause_2"]["original"] == "2. Term\nOne year."
+    assert completed["clause_1"]["failed"] is False
+
+
+@pytest.mark.asyncio
+async def test_unexpected_error_fails_the_job_instead_of_leaving_it_processing(async_client, with_fake_groq, monkeypatch):
+    from app.jobs import pipeline as pipeline_module
+
+    def boom(text):
+        raise RuntimeError("splitter bug")
+
+    monkeypatch.setattr(pipeline_module, "split_clauses", boom)
+    upload = await async_client.post("/api/documents", data={"text": "1. Rent\nPay monthly."})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.FAILED.value
+    assert "splitter bug" not in result["error"]  # internals aren't shown to the user
+
+
+class _RaisesForEveryBatch:
+    def __init__(self, error):
+        self.error = error
+
+    async def complete(self, prompt):
+        raise self.error
+
+
+def _groq_error(error_cls, status):
+    import httpx
+
+    request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+    return error_cls("secret request details", response=httpx.Response(status, request=request), body=None)
+
+
+@pytest.mark.asyncio
+async def test_invalid_api_key_fails_the_job_with_a_plain_explanation(async_client, with_fake_groq):
+    import groq
+
+    from app.jobs import pipeline as pipeline_module
+
+    pipeline_module.set_client(_RaisesForEveryBatch(_groq_error(groq.AuthenticationError, 401)))
+    upload = await async_client.post("/api/documents", data={"text": "1. Rent\nPay monthly.\n\n2. Term\nOne year."})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.FAILED.value
+    assert "GROQ_API_KEY" in result["error"]
+    assert "secret request details" not in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_one_failing_batch_does_not_fail_the_whole_document(async_client, with_fake_groq):
+    import json
+
+    from app.jobs import pipeline as pipeline_module
+
+    class FailsWhenClauseThreeIsAsked:
+        async def complete(self, prompt):
+            items = json.loads(prompt.split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+            if any(c["clause_id"] == "clause_7" for c in items):
+                raise RuntimeError("connection reset")
+            return json.dumps({"results": [{"clause_id": c["clause_id"], "simplified": "ok", "self_check": False} for c in items]})
+
+    pipeline_module.set_client(FailsWhenClauseThreeIsAsked())
+    # 8 clauses = two batches of 6 and 2; the second batch fails
+    text = "\n\n".join(f"{n}. Heading {n}\nBody text {n}." for n in range(1, 9))
+    upload = await async_client.post("/api/documents", data={"text": text})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.DONE.value
+    failed = {c["id"]: c["failed"] for c in result["completed"]}
+    assert failed == {f"clause_{n}": n >= 7 for n in range(1, 9)}
+
+
+@pytest.mark.asyncio
+async def test_glossary_failure_does_not_fail_the_job(async_client, with_fake_groq):
+    from app.jobs import pipeline as pipeline_module
+
+    class BrokenGlossary:
+        def search(self, text):
+            raise OSError("model download failed")
+
+    pipeline_module.set_glossary_store(BrokenGlossary())
+    try:
+        upload = await async_client.post("/api/documents", data={"text": "1. Rent\nPay monthly."})
+        result = await _poll_until_done(async_client, upload.json()["job_id"])
+    finally:
+        pipeline_module.set_glossary_store(None)
+
+    assert result["status"] == JobStatus.DONE.value
+    assert result["completed"][0]["simplified"].startswith("SIMPLIFIED:")
+    assert result["completed"][0]["glossary_matches"] == []
+
+
+@pytest.mark.asyncio
+async def test_documents_over_the_clause_limit_are_rejected_before_any_llm_call(async_client, with_fake_groq, monkeypatch):
+    from app.jobs import pipeline as pipeline_module
+
+    monkeypatch.setattr(pipeline_module, "MAX_CLAUSES", 2)
+    upload = await async_client.post("/api/documents", data={"text": "1. A\nOne.\n\n2. B\nTwo.\n\n3. C\nThree."})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.FAILED.value
+    assert "limit is 2" in result["error"]
+    assert with_fake_groq.prompts == []
+
+
+@pytest.mark.asyncio
+async def test_heading_only_clauses_are_shown_but_never_sent_to_the_model(async_client, with_fake_groq):
+    text = "Article 1 Payment Terms\n1.1 Rent\nPay monthly.\n\n1.2 Deposit\nPay a deposit.\n\nArticle 2 Ending\n2.1 Notice\nGive notice."
+    upload = await async_client.post("/api/documents", data={"text": text})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.DONE.value
+    headings = [c["text"] for c in result["clauses"] if c["heading_only"]]
+    assert headings == ["Article 1 Payment Terms", "Article 2 Ending"]
+    assert result["total_clauses"] == 3
+    assert {c["heading"] for c in result["completed"]} == {"1.1 Rent", "1.2 Deposit", "2.1 Notice"}
+    assert all("Article 1 Payment Terms" not in prompt.split("Clauses:")[1] for prompt in with_fake_groq.prompts)
+
+
+@pytest.mark.asyncio
+async def test_signature_section_is_shown_but_never_sent_to_the_model(async_client, with_fake_groq):
+    text = (
+        "1. Rent\nPay monthly.\n\n2. Deposit\nPay a deposit.\n\n"
+        "IN WITNESS WHEREOF the parties have signed this agreement.\nWITNESSES:\n1. (Name of the Witness)\nOWNER\nTENANT"
+    )
+    upload = await async_client.post("/api/documents", data={"text": text})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.DONE.value
+    signatures = [c for c in result["clauses"] if c["signature_block"]]
+    assert len(signatures) == 1 and signatures[0]["text"].endswith("TENANT")
+    assert result["total_clauses"] == 2
+    assert all("IN WITNESS WHEREOF" not in prompt for prompt in with_fake_groq.prompts)
+
+
+@pytest.mark.asyncio
+async def test_clauses_lost_to_the_daily_limit_say_why(async_client, with_fake_groq, monkeypatch):
+    import httpx
+    from groq import RateLimitError
+
+    from app.jobs import pipeline as pipeline_module
+
+    class DailyLimitAfterFirstBatch:
+        def __init__(self):
+            self.calls = 0
+
+        async def complete(self, prompt):
+            self.calls += 1
+            if self.calls > 1:
+                response = httpx.Response(429, request=httpx.Request("POST", "https://api.groq.com"))
+                raise RateLimitError("tokens per day (TPD) ... Please try again in 4m10s.", response=response, body=None)
+            return await with_fake_groq.complete(prompt)
+
+    pipeline_module.set_client(DailyLimitAfterFirstBatch())
+    monkeypatch.setattr("app.config.settings.groq_batch_size", 1)
+    upload = await async_client.post("/api/documents", data={"text": "1. Rent\nPay monthly.\n\n2. Deposit\nPay a deposit."})
+    result = await _poll_until_done(async_client, upload.json()["job_id"])
+
+    assert result["status"] == JobStatus.DONE.value
+    assert [c["failed"] for c in sorted(result["completed"], key=lambda c: c["id"])] == [False, True]
+    assert result["error"] == "The server is busy. Please try again in about 5 minutes."

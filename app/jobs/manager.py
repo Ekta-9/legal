@@ -1,7 +1,7 @@
 import uuid
 from dataclasses import dataclass, field
 
-from app.models.schemas import JobStatus, SimplifiedClause
+from app.models.schemas import ClauseOutline, JobStatus, Reader, SimplifiedClause
 
 
 @dataclass
@@ -9,8 +9,10 @@ class Job:
     id: str
     status: JobStatus = JobStatus.PENDING
     total_clauses: int = 0
+    clauses: list[ClauseOutline] = field(default_factory=list)
     completed: list[SimplifiedClause] = field(default_factory=list)
     error: str | None = None
+    reader: Reader | None = None
 
 
 class JobManager:
@@ -21,8 +23,8 @@ class JobManager:
     def __init__(self):
         self._jobs: dict[str, Job] = {}
 
-    def create(self) -> Job:
-        job = Job(id=str(uuid.uuid4()))
+    def create(self, reader: Reader | None = None) -> Job:
+        job = Job(id=str(uuid.uuid4()), reader=reader)
         self._jobs[job.id] = job
         return job
 
@@ -32,11 +34,17 @@ class JobManager:
     def set_status(self, job_id: str, status: JobStatus) -> None:
         self._jobs[job_id].status = status
 
-    def set_total(self, job_id: str, total: int) -> None:
-        self._jobs[job_id].total_clauses = total
+    def set_clauses(self, job_id: str, clauses: list[ClauseOutline]) -> None:
+        job = self._jobs[job_id]
+        job.clauses = clauses
+        job.total_clauses = sum(1 for c in clauses if not c.skipped)
 
     def add_completed(self, job_id: str, clauses: list[SimplifiedClause]) -> None:
         self._jobs[job_id].completed.extend(clauses)
+
+    def note(self, job_id: str, error: str) -> None:
+        """Why some clauses are missing from a job that still finished."""
+        self._jobs[job_id].error = error
 
     def fail(self, job_id: str, error: str) -> None:
         job = self._jobs[job_id]

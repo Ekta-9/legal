@@ -16,6 +16,8 @@ async def get_result(job_id: str) -> JobResultResponse:
         job_id=job.id,
         status=job.status,
         total_clauses=job.total_clauses,
+        clauses=job.clauses,
         completed=job.completed,
         error=job.error,
+        reader=job.reader,
     )

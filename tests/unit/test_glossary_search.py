@@ -1,83 +1,54 @@
-import json
-
 import pytest
 
 from app.rag.glossary_store import GlossaryStore
 
-TEST_GLOSSARY = [
-    {
-        "term": "Indemnification",
-        "definition": "A promise by one party to cover the other party's losses, damages, or legal costs.",
-    },
-    {
-        "term": "Force Majeure",
-        "definition": "A clause excusing performance when extraordinary events like natural disasters make it impossible.",
-    },
-    {
-        "term": "Arbitration",
-        "definition": "A private process for resolving disputes outside of court using a neutral arbitrator.",
-    },
-    {
-        "term": "Confidentiality",
-        "definition": "An obligation to keep certain information secret and not share it with outside parties.",
-    },
-    {
-        "term": "Termination",
-        "definition": "The act of ending a contract before its natural conclusion.",
-    },
-]
-
 
 @pytest.fixture(scope="module")
-def store(tmp_path_factory):
-    path = tmp_path_factory.mktemp("glossary") / "glossary.json"
-    path.write_text(json.dumps(TEST_GLOSSARY), encoding="utf-8")
-    return GlossaryStore(path)
+def store():
+    return GlossaryStore()
 
 
-def test_search_returns_correct_top_match_for_clear_query(store):
-    results = store.search("The party shall indemnify and hold harmless the other party from any claims.")
-    assert len(results) > 0
-    assert results[0]["term"] == "Indemnification"
+def _terms(store, text):
+    return [m["term"] for m in store.search(text)]
 
 
-def test_search_matches_arbitration_over_unrelated_terms(store):
-    results = store.search("Any dispute shall be resolved through binding arbitration rather than in court.")
-    assert results[0]["term"] == "Arbitration"
+def test_word_family_matches(store):
+    assert _terms(store, "The Tenant shall indemnify the Owner against any loss.") == ["Indemnification"]
 
 
-def test_top_k_limits_result_count(store):
-    results = store.search(
-        "The party shall indemnify and hold harmless the other party from any claims.", top_k=1
+def test_terms_that_only_sound_related_are_not_shown(store):
+    # the old embedding search showed "Statute of Limitations" and "Remedy" for a payment clause
+    assert _terms(store, "The Customer shall pay each undisputed invoice within 45 days of receipt.") == []
+
+
+def test_concepts_are_matched_within_one_sentence(store):
+    convenience = "Either party may terminate this licence by giving one month's written notice."
+    cause = "The Owner may terminate this licence forthwith if the fee remains unpaid for two months."
+    assert set(_terms(store, convenience)) == {"Termination for Convenience", "Notice"}
+    assert _terms(store, cause) == ["Termination for Cause"]
+    # "terminate" and "breach" in different sentences is not termination for cause
+    assert "Termination for Cause" not in _terms(store, "Either party may terminate this. A breach is costly.")
+
+
+def test_specific_term_hides_the_general_one(store):
+    terms = _terms(store, "Either party may terminate if the other commits a material breach of this Agreement.")
+    assert "Material Breach" in terms
+    assert "Breach of Contract" not in terms
+
+
+def test_known_false_friends_are_not_matched(store):
+    text = (
+        "The Trust is registered under the Investment Company Act of 1940, as amended. "
+        "Domini is a limited liability company. Exhibit h(2)."
     )
-    assert len(results) <= 1
+    assert _terms(store, text) == []
 
 
-def test_threshold_filters_out_low_relevance_matches(store):
-    results = store.search(
-        "The party shall indemnify and hold harmless the other party from any claims.", threshold=0.99
+def test_terms_come_in_the_order_the_clause_raises_them_and_are_capped(store):
+    text = (
+        "Notwithstanding anything else, liability shall not exceed the fees, except for indemnity, wilful misconduct, "
+        "negligence, tort claims or breach of this Agreement."
     )
-    assert results == []
-
-
-def test_empty_query_returns_empty_list(store):
-    assert store.search("") == []
-    assert store.search("   ") == []
-
-
-def test_unrelated_text_returns_no_high_confidence_match(store):
-    results = store.search("The weather today is sunny with a light breeze over the lake.")
-    assert results == []
-
-
-def test_results_sorted_by_score_descending(store):
-    results = store.search("The party shall indemnify and hold harmless the other party from any claims.")
-    scores = [r["score"] for r in results]
-    assert scores == sorted(scores, reverse=True)
-
-
-def test_empty_glossary_file_returns_no_matches(tmp_path):
-    path = tmp_path / "empty_glossary.json"
-    path.write_text("[]", encoding="utf-8")
-    empty_store = GlossaryStore(path)
-    assert empty_store.search("indemnify and hold harmless") == []
+    terms = _terms(store, text)
+    assert terms[0] == "Liability"
+    assert len(terms) <= 5

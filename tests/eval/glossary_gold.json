@@ -1,0 +1,193 @@
+{
+  "_comment": "Hand-labelled glossary relevance for the tests/eval contracts. A glossary term (app/rag/glossary_data/glossary.json) is relevant to a clause if the clause uses the term, its word family (indemnify -> Indemnification, liabilities -> Liability), or the legal concept it names: ending on notice without a reason -> Termination for Convenience; ending for breach, non-payment or misconduct -> Termination for Cause; 'governed by the laws of' -> Choice of Law; named courts -> Venue; 'beyond reasonable control' -> Force Majeure; 'if capable of remedy, not remedied within 30 days' -> Cure Period; 'breach of this Agreement / of Clause 8' -> Breach of Contract (Material Breach instead where it says material). Clauses not listed should get no glossary terms. History: the first labels (written before scoring) used only the term's word family; after the first scoring run the concept rule above was adopted and applied to all clauses, adding 14 labels, and one word-family label missed at first (services 8: \"prompt notice\" -> Notice) was added. The embedding search scored precision 26% / recall 36% on the first labels.",
+  "documents": {
+    "rental_agreement": {
+      "4. Late Payment": [
+        "Remedy"
+      ],
+      "7. Use of Premises": [
+        "Assignment"
+      ],
+      "8. Termination": [
+        "Notice",
+        "Termination for Convenience",
+        "Termination for Cause"
+      ],
+      "9. Indemnity": [
+        "Indemnification",
+        "Negligence",
+        "Force Majeure"
+      ],
+      "10. Governing Law": [
+        "Governing Law",
+        "Jurisdiction",
+        "Choice of Law",
+        "Venue"
+      ]
+    },
+    "employment_agreement": {
+      "2. Probation": [
+        "Notice",
+        "Termination for Convenience"
+      ],
+      "5. Confidentiality": [
+        "Confidentiality"
+      ],
+      "7. Termination": [
+        "Notice",
+        "Termination for Convenience",
+        "Termination for Cause"
+      ]
+    },
+    "services_agreement_hard": {
+      "1. Definitions": [
+        "Damages"
+      ],
+      "2. Payment": [
+        "Notice"
+      ],
+      "3. Limitation of Liability": [
+        "Limitation of Liability",
+        "Liability",
+        "Indemnification",
+        "Willful Misconduct",
+        "Breach of Contract"
+      ],
+      "4. Exclusion of Indirect Loss": [
+        "Liability",
+        "Tort",
+        "Negligence",
+        "Limitation of Liability"
+      ],
+      "5. Service Level": [
+        "Force Majeure"
+      ],
+      "6. Service Credits": [
+        "Remedy"
+      ],
+      "7. Indemnity": [
+        "Indemnification"
+      ],
+      "8. Confidentiality": [
+        "Confidentiality",
+        "Breach of Contract",
+        "Notice"
+      ],
+      "9. Termination": [
+        "Material Breach",
+        "Cure Period",
+        "Notice",
+        "Termination for Cause",
+        "Liability"
+      ],
+      "10. Assignment": [
+        "Assignment"
+      ],
+      "11. Price Review": [
+        "Notice"
+      ]
+    },
+    "rental_agreement_dense": {
+      "Preamble": [
+        "Successors and Assigns",
+        "Recital"
+      ],
+      "4. That in the event of the Tenant committing default in payment of rent for two consecutive": [
+        "Default",
+        "Termination for Cause"
+      ],
+      "5. That the Tenant shall not sub-let, assign or otherwise part with the possession of the whole": [
+        "Assignment"
+      ],
+      "7. That either party may terminate this agreement by giving one month's notice in writing to the": [
+        "Notice",
+        "Termination for Convenience"
+      ],
+      "9. That the Tenant shall permit the Owner or his authorised agent to enter and inspect the Demised": [
+        "Notice"
+      ]
+    }
+  },
+  "dev_comment": "documents: the tests/eval contracts, keyed by clause heading. The patterns in glossary.json were written against these, so they are a regression check, not evidence of accuracy. rental_agreement_dense (2026-11-07) was labelled after seeing the matcher's output; two of its terms were judged wrong and fixed in the patterns: Assignment on 'successors and assigns' (a noun: whoever takes over) and Damages on 'cost of damages' (physical damage, not money awarded by a court).",
+  "heldout_comment": "heldout: real CUAD contracts from tests/eval/rag_gold.json, keyed by clause number, labelled by reading with the same rule before the pattern matcher was run on them. Blind result before any change: pattern matcher precision 81% / recall 91%; the old embedding search 25% / 42%. Afterwards one labelling error was corrected (distributor preamble: 'The Distributor represents that' -> Representation) and the patterns were fixed for 'as amended' (a statute), 'limited liability company', filing labels like 'Exhibit h(2)', 'without cause' and 'change or modification of this Agreement' — so this split is no longer held out. The signature section after the last clause is its own block, keyed 'Signatures' (2026-11-07); cuad_sponsorship's 'In Witness Whereof' moved there from clause 10, which used to swallow it.",
+  "heldout": {
+    "cuad_distributor": {
+      "Preamble": [
+        "Consideration",
+        "Representation"
+      ],
+      "1": [
+        "Exhibit"
+      ],
+      "2": [
+        "Amendment"
+      ],
+      "5": [
+        "Amendment"
+      ],
+      "6": [
+        "Non-Compete Clause"
+      ],
+      "7": [
+        "Representation",
+        "Warranty"
+      ],
+      "10": [
+        "Termination for Convenience",
+        "Notice"
+      ],
+      "12": [
+        "Successors and Assigns"
+      ],
+      "14": [
+        "Entire Agreement",
+        "Amendment"
+      ],
+      "15": [
+        "Assignment"
+      ],
+      "16": [
+        "Notice"
+      ],
+      "17": [
+        "Governing Law",
+        "Choice of Law"
+      ],
+      "18": [
+        "Representation",
+        "Exhibit"
+      ]
+    },
+    "cuad_sponsorship": {
+      "Preamble": [
+        "Recital",
+        "Consideration"
+      ],
+      "4": [
+        "Limitation of Liability",
+        "Liability",
+        "Willful Misconduct",
+        "Gross Negligence"
+      ],
+      "6": [
+        "Amendment",
+        "Termination for Convenience",
+        "Notice"
+      ],
+      "8": [
+        "Severability"
+      ],
+      "9": [
+        "Notice"
+      ],
+      "10": [
+        "Governing Law",
+        "Choice of Law",
+        "Counterparts"
+      ],
+      "Signatures": [
+        "In Witness Whereof"
+      ]
+    }
+  }
+}

@@ -1,246 +1,402 @@
 const statusEl = document.getElementById("status");
-const originalDocEl = document.getElementById("original-doc");
-const simplifiedDocEl = document.getElementById("simplified-doc");
-const simplifiedHeadingEl = document.getElementById("simplified-heading");
-const downloadBtn = document.getElementById("download-btn");
+const clausesEl = document.getElementById("clauses");
+const countDoneEl = document.getElementById("count-done");
+const countTotalEl = document.getElementById("count-total");
+const progressBarEl = document.getElementById("progress-bar");
+const langLabelEl = document.getElementById("lang-label");
+const showOriginalEl = document.getElementById("show-original");
+const printBtn = document.getElementById("print-btn");
 
 const LANGUAGES = { en: "English", hi: "Hindi", mr: "Marathi" };
-
 const POLL_INTERVAL_MS = 1500;
+const RETRY_INTERVAL_MS = 3000;
+const MAX_CONSECUTIVE_ERRORS = 5;
 
 const params = new URLSearchParams(window.location.search);
 const jobId = params.get("job");
-const targetLang = params.get("lang") || "en";
+const targetLang = LANGUAGES[params.get("lang")] ? params.get("lang") : "en";
 
-let renderedIds = new Set();
-let skeletonBuilt = false;
-let jobDone = false;
-let pendingTranslations = 0;
+const rowsById = new Map();
+const renderedIds = new Set();
+let failedCount = 0;
+let totalClauses = 0;
+let jobFinished = false;
+let consecutiveErrors = 0;
 
-simplifiedHeadingEl.textContent =
-  targetLang === "en" ? "Simplified" : `Simplified (${LANGUAGES[targetLang] || targetLang})`;
+// Translations run one at a time: the server serializes them anyway, and
+// firing one request per clause at once is what used to crash it.
+const translationQueue = [];
+let translating = false;
 
-downloadBtn.addEventListener("click", () => {
-  window.print();
+if (targetLang !== "en") {
+  langLabelEl.textContent = `/ + ${LANGUAGES[targetLang]}`;
+}
+
+showOriginalEl.addEventListener("change", () => {
+  clausesEl.classList.toggle("hide-original", !showOriginalEl.checked);
 });
 
+printBtn.addEventListener("click", () => window.print());
+
 if (!jobId) {
-  statusEl.textContent = "No document to show — upload one first.";
+  setStatus("No document to show. Upload one first.", true);
 } else {
-  startPolling(jobId);
+  poll();
 }
 
-function startPolling(id) {
-  poll(id);
-  const pollTimer = setInterval(() => {
-    poll(id, pollTimer);
-  }, POLL_INTERVAL_MS);
+function setStatus(message, isError = false) {
+  statusEl.textContent = message;
+  statusEl.classList.toggle("is-error", isError);
 }
 
-async function poll(id, timer) {
-  const response = await fetch(`/api/documents/${id}`);
+function pad(n) {
+  return String(n).padStart(2, "0");
+}
+
+// The document's own numbering ("§4", "§4.2", "§IV"), "PRE" for the preamble,
+// or the position for unnumbered paragraphs — see app/parsing/clause_splitter.py
+const ANNEX_LABELS = { annexure: "ANX", annex: "ANX", schedule: "SCH", appendix: "APP", exhibit: "EXH" };
+
+function clauseLabel(heading, index) {
+  if (heading === "Preamble") return "PRE";
+  const annex = /^\s*(annexure|annex|schedule|appendix|exhibit)\b[\s\-‐-―:]*([IVXLC]+|\d{1,3}|[A-Z])?\b/i.exec(heading || "");
+  if (annex) return annex[2] ? `${ANNEX_LABELS[annex[1].toLowerCase()]} ${annex[2]}` : ANNEX_LABELS[annex[1].toLowerCase()];
+  const numbered = /^\s*(\d+(?:\.\d+)*)[.)\s]/.exec(heading || "");
+  const article = /^\s*(?:section|article|clause)\s+(\d+(?:\.\d+)*|[IVXLC]+)/i.exec(heading || "");
+  const match = numbered || article;
+  return match ? `§${match[1]}` : `¶${pad(index + 1)}`;
+}
+
+function updateCounter() {
+  countDoneEl.textContent = pad(renderedIds.size - failedCount);
+  countTotalEl.textContent = pad(totalClauses);
+  const pct = totalClauses > 0 ? (renderedIds.size / totalClauses) * 100 : 0;
+  progressBarEl.style.width = `${pct}%`;
+}
+
+async function poll() {
+  let response;
+  try {
+    response = await fetch(`/api/documents/${encodeURIComponent(jobId)}`);
+  } catch {
+    consecutiveErrors += 1;
+    if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+      setStatus("Lost connection to the server. Retrying...", true);
+    }
+    setTimeout(poll, RETRY_INTERVAL_MS);
+    return;
+  }
+  consecutiveErrors = 0;
+
+  if (response.status === 404) {
+    setStatus("This result no longer exists. The server may have restarted. Upload the document again.", true);
+    return;
+  }
   if (!response.ok) {
-    statusEl.textContent = "Job not found.";
-    if (timer) clearInterval(timer);
+    setStatus(`Server error (${response.status}). Retrying...`, true);
+    setTimeout(poll, RETRY_INTERVAL_MS);
     return;
   }
 
   const data = await response.json();
+  render(data);
 
-  if (!skeletonBuilt && data.total_clauses > 0) {
-    buildSkeleton(data.total_clauses);
-    skeletonBuilt = true;
+  if (data.status === "done" || data.status === "failed") {
+    finish(data);
+  } else {
+    setTimeout(poll, POLL_INTERVAL_MS);
+  }
+}
+
+// "Written for: Tenant · Rental / lease agreement", as chosen on the upload form
+function showReader(reader) {
+  const note = document.getElementById("reader-note");
+  if (!reader || !note.hidden || !(reader.role || reader.document_type)) return;
+  note.append(reader.role ? "Written for: " : "Document: ");
+  if (reader.role) note.appendChild(el("strong", "", reader.role));
+  if (reader.role && reader.document_type) note.append(" · ");
+  if (reader.document_type) note.append(reader.document_type);
+  note.hidden = false;
+}
+
+function render(data) {
+  showReader(data.reader);
+  const outline = data.clauses || [];
+  if (outline.length > 0 && rowsById.size === 0) {
+    totalClauses = outline.filter((clause) => !clause.heading_only && !clause.signature_block).length;
+    outline.forEach((clause, index) => {
+      const row = clause.heading_only
+        ? buildHeadingRow(clause, index)
+        : clause.signature_block
+          ? buildSignatureRow(clause)
+          : buildRow(clause, index);
+      rowsById.set(clause.id, row);
+      clausesEl.appendChild(row);
+    });
   }
 
   for (const clause of data.completed) {
     if (!renderedIds.has(clause.id)) {
       renderedIds.add(clause.id);
-      renderClause(clause);
+      fillRow(clause);
     }
   }
-  statusEl.textContent = `${data.status} (${data.completed.length}/${data.total_clauses})`;
 
-  if (data.status === "done" || data.status === "failed") {
-    if (timer) clearInterval(timer);
-    if (data.status === "failed") {
-      statusEl.textContent = `Failed: ${data.error}`;
-    } else if (data.total_clauses === 0) {
-      originalDocEl.innerHTML = "<p class=\"doc-empty\">No clauses found in this document.</p>";
-      simplifiedDocEl.innerHTML = "<p class=\"doc-empty\">Nothing to simplify.</p>";
-    }
-    jobDone = true;
-    maybeEnableDownload();
+  updateCounter();
+  if (data.status === "pending") {
+    setStatus("Queued...");
+  } else if (data.status === "processing") {
+    setStatus(totalClauses > 0 ? `Simplifying ${renderedIds.size} of ${totalClauses}...` : "Reading document...");
   }
 }
 
-function maybeEnableDownload() {
-  downloadBtn.disabled = !(jobDone && pendingTranslations === 0);
+function finish(data) {
+  jobFinished = true;
+  for (const row of clausesEl.querySelectorAll(".clause.is-pending")) {
+    markNotProcessed(row);
+  }
+
+  if (data.status === "failed") {
+    setStatus(`Failed: ${data.error || "unknown error"}`, true);
+  } else if (totalClauses === 0) {
+    setStatus("No clauses found in this document.", true);
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Nothing could be split into clauses. Try pasting the text instead.";
+    clausesEl.appendChild(empty);
+  } else if (failedCount > 0) {
+    const labels = [...clausesEl.querySelectorAll(".clause.is-missing")].map((row) => row.dataset.label);
+    const reason = data.error ? ` ${data.error}` : "";
+    setStatus(`Done. ${failedCount} clause(s) could not be simplified: ${labels.join(", ")}.${reason}`, true);
+  } else {
+    setStatus("Done. All clauses simplified.");
+  }
+  updatePrintButton();
 }
 
-// clause ids are "clause_<n>" (1-indexed) — see app/parsing/clause_splitter.py
-function parseClauseNumber(id) {
-  const match = /_(\d+)$/.exec(id);
-  return match ? parseInt(match[1], 10) : null;
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 
-function buildSkeleton(total) {
-  for (let n = 1; n <= total; n++) {
-    originalDocEl.appendChild(buildSkeletonSlot(`orig-clause-${n}`, n));
-    simplifiedDocEl.appendChild(buildSkeletonSlot(`simp-clause-${n}`, n));
+function buildRow(clause, index) {
+  const label = clauseLabel(clause.heading, index);
+  const row = el("article", "clause is-pending");
+  row.dataset.label = label;
+  row.setAttribute("aria-label", `Clause ${label}`);
+
+  row.appendChild(el("div", "clause-idx", label));
+
+  const original = el("div", "clause-original");
+  original.appendChild(el("p", "cell-label mono", "Original"));
+  original.appendChild(el("p", "clause-text", clause.text));
+  row.appendChild(original);
+
+  const plain = el("div", "clause-plain");
+  plain.appendChild(el("p", "cell-label mono", "Plain English"));
+  plain.appendChild(el("p", "clause-text", "Processing"));
+  plain.appendChild(el("div", "clause-meta mono"));
+  plain.appendChild(el("div", "clause-terms"));
+  const context = el("div", "clause-terms clause-context");
+  fillContext(context, clause.context);
+  plain.appendChild(context);
+  plain.appendChild(el("div", "translation"));
+  row.appendChild(plain);
+
+  return row;
+}
+
+// Parties, defined terms and referenced clauses retrieved from elsewhere in the
+// same contract (app/rag/document_context.py) — the same material the model was given
+function fillContext(container, context) {
+  if (!context) return;
+  const entries = [];
+  for (const party of context.parties || []) {
+    const [role, ...rest] = party.split(": ");
+    entries.push([role, rest.join(": ")]);
+  }
+  for (const [term, definition] of Object.entries(context.definitions || {})) {
+    entries.push([term, definition.startsWith(`${term}: `) ? definition.slice(term.length + 2) : definition]);
+  }
+  for (const [number, text] of Object.entries(context.referenced_sections || {})) {
+    entries.push([`Clause ${number}`, text]);
+  }
+  if (entries.length === 0) return;
+
+  container.appendChild(el("span", "terms-label mono", "From this contract"));
+  for (const [name, text] of entries) {
+    const details = el("details", "term");
+    details.appendChild(el("summary", "mono", name));
+    details.appendChild(el("p", "", text));
+    container.appendChild(details);
   }
 }
 
-function buildSkeletonSlot(id, number) {
-  const slot = document.createElement("article");
-  slot.className = "doc-clause doc-clause--pending";
-  slot.id = id;
-
-  const head = document.createElement("div");
-  head.className = "doc-clause-head";
-  const num = document.createElement("span");
-  num.className = "doc-clause-number";
-  num.textContent = `${number}.`;
-  head.appendChild(num);
-  slot.appendChild(head);
-
-  const text = document.createElement("p");
-  text.className = "doc-clause-text doc-clause-pending-text";
-  text.textContent = "Processing...";
-  slot.appendChild(text);
-
-  return slot;
+// A title like "Article 2 Term of Agreement": nothing to simplify, never sent to the model
+function buildHeadingRow(clause, index) {
+  const label = clauseLabel(clause.heading, index);
+  const row = el("div", "clause is-heading");
+  row.appendChild(el("div", "clause-idx", label));
+  row.appendChild(el("h2", "clause-title", clause.text.replace(/\s+/g, " ")));
+  return row;
 }
 
-function renderClause(clause) {
-  const number = parseClauseNumber(clause.id);
-  fillOriginalSlot(number, clause);
-  fillSimplifiedSlot(number, clause);
+// "IN WITNESS WHEREOF" and the names and signatures after it: never sent to the model
+function buildSignatureRow(clause) {
+  const row = el("article", "clause is-signature");
+  row.setAttribute("aria-label", "Signatures");
+  row.appendChild(el("div", "clause-idx", "SIG"));
+
+  const original = el("div", "clause-original");
+  original.appendChild(el("p", "cell-label mono", "Original"));
+  original.appendChild(el("p", "clause-text", clause.text));
+  row.appendChild(original);
+
+  const plain = el("div", "clause-plain");
+  plain.appendChild(el("p", "cell-label mono", "Plain English"));
+  plain.appendChild(
+    el(
+      "p",
+      "clause-note",
+      "Signatures and witnesses — nothing to simplify. Check that the names, dates and signatures are filled in correctly.",
+    ),
+  );
+  row.appendChild(plain);
+  return row;
 }
 
-function fillOriginalSlot(number, clause) {
-  const slot = number ? document.getElementById(`orig-clause-${number}`) : null;
-  const target = slot || originalDocEl.appendChild(buildSkeletonSlot("", number || "?"));
-  target.className = "doc-clause";
-  target.innerHTML = "";
-
-  const head = document.createElement("div");
-  head.className = "doc-clause-head";
-  const num = document.createElement("span");
-  num.className = "doc-clause-number";
-  num.textContent = `${number || "?"}.`;
-  head.appendChild(num);
-  if (clause.heading) {
-    const heading = document.createElement("span");
-    heading.className = "doc-clause-heading";
-    heading.textContent = clause.heading;
-    head.appendChild(heading);
+function rowFor(clause) {
+  if (!rowsById.has(clause.id)) {
+    const row = buildRow({ heading: clause.heading, text: clause.original }, rowsById.size);
+    rowsById.set(clause.id, row);
+    clausesEl.appendChild(row);
   }
-  target.appendChild(head);
-
-  const text = document.createElement("p");
-  text.className = "doc-clause-text";
-  text.textContent = clause.original;
-  target.appendChild(text);
+  return rowsById.get(clause.id);
 }
 
-function fillSimplifiedSlot(number, clause) {
-  const slot = number ? document.getElementById(`simp-clause-${number}`) : null;
-  const target = slot || simplifiedDocEl.appendChild(buildSkeletonSlot("", number || "?"));
-  target.className = "doc-clause";
-  target.innerHTML = "";
+function fillRow(clause) {
+  const row = rowFor(clause);
+  row.classList.remove("is-pending");
 
-  const head = document.createElement("div");
-  head.className = "doc-clause-head";
-  const num = document.createElement("span");
-  num.className = "doc-clause-number";
-  num.textContent = `${number || "?"}.`;
-  head.appendChild(num);
-  if (clause.heading) {
-    const heading = document.createElement("span");
-    heading.className = "doc-clause-heading";
-    heading.textContent = clause.heading;
-    head.appendChild(heading);
+  if (clause.failed) {
+    failedCount += 1;
+    row.classList.add("is-missing");
+    row.querySelector(".clause-plain .clause-text").textContent =
+      "Not simplified: no usable answer came back for this clause, even after retrying. Read the original carefully.";
+    return;
   }
+
+  const plain = row.querySelector(".clause-plain");
+  const plainText = plain.querySelector(".clause-text");
+  plainText.textContent = clause.simplified;
+
   if (clause.self_check) {
-    const badge = document.createElement("span");
-    badge.className = "badge";
-    badge.textContent = "⚠ machine-check flagged this — read the original carefully";
-    head.appendChild(badge);
+    plain.insertBefore(el("p", "flag mono", "⚑ Model unsure — read the original closely"), plainText);
   }
-  if (clause.readability) {
-    head.appendChild(buildReadabilityPill(clause.readability));
+  if (clause.lost_qualifiers && clause.lost_qualifiers.length > 0) {
+    plain.insertBefore(
+      el("p", "flag mono", `⚑ May have lost ${clause.lost_qualifiers.join(" and ")} — check the original`),
+      plainText,
+    );
   }
-  target.appendChild(head);
+  if (clause.missing_numbers && clause.missing_numbers.length > 0) {
+    plain.insertBefore(
+      el("p", "flag mono", `⚑ Missing from plain version: ${clause.missing_numbers.join(", ")} — check the original`),
+      plainText,
+    );
+  }
 
-  const text = document.createElement("p");
-  text.className = "doc-clause-text";
-  text.textContent = clause.simplified;
-  target.appendChild(text);
+  if (clause.readability) {
+    plain.querySelector(".clause-meta").appendChild(buildGrade(clause.readability));
+  }
 
   if (clause.glossary_matches && clause.glossary_matches.length > 0) {
-    target.appendChild(buildGlossaryTerms(clause.glossary_matches));
+    fillTerms(plain.querySelector(".clause-terms"), clause.glossary_matches);
   }
 
   if (targetLang !== "en") {
-    text.textContent = "Translating...";
-    text.classList.add("doc-clause-pending-text");
-    pendingTranslations += 1;
-    translateClauseText(clause.simplified, targetLang)
-      .then((translated) => {
-        text.textContent = translated;
-        text.classList.remove("doc-clause-pending-text");
-        text.classList.add("translate-output");
-      })
-      .catch((err) => {
-        text.textContent = `Translation failed: ${err.message}`;
-        text.classList.remove("doc-clause-pending-text");
-      })
-      .finally(() => {
-        pendingTranslations -= 1;
-        maybeEnableDownload();
-      });
+    const box = plain.querySelector(".translation");
+    box.appendChild(el("p", "translation-label mono", `${LANGUAGES[targetLang]} / experimental machine translation, not reviewed`));
+    const text = el("p", "translation-text placeholder", "Queued for translation");
+    box.appendChild(text);
+    enqueueTranslation(clause.simplified, box, text);
   }
 }
 
-async function translateClauseText(text, lang) {
-  const response = await fetch("/api/translate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, target_lang: lang }),
+function markNotProcessed(row) {
+  row.classList.remove("is-pending");
+  row.classList.add("is-missing");
+  row.querySelector(".clause-plain .clause-text").textContent =
+    "Not processed: the job stopped before reaching this clause.";
+}
+
+function buildGrade(readability) {
+  const delta = readability.delta;
+  const grade = el("span", "grade" + (delta > 0 ? " improved" : delta < 0 ? " worsened" : ""));
+  grade.title =
+    "Flesch-Kincaid reading grade: roughly the years of schooling needed to read the text. " +
+    "It measures sentence and word length only, not whether the meaning is correct.";
+  grade.append("Reading grade ");
+  grade.appendChild(el("strong", "", `${readability.original_grade} → ${readability.simplified_grade}`));
+  return grade;
+}
+
+function fillTerms(container, matches) {
+  container.appendChild(el("span", "terms-label mono", "Terms"));
+  for (const match of matches) {
+    const details = el("details", "term");
+    details.appendChild(el("summary", "mono", match.term));
+    details.appendChild(el("p", "", match.definition));
+    container.appendChild(details);
+  }
+}
+
+function enqueueTranslation(text, box, textEl) {
+  translationQueue.push(async () => {
+    textEl.textContent = "Translating";
+    try {
+      textEl.textContent = await translateText(text);
+      textEl.classList.remove("placeholder");
+    } catch (err) {
+      box.classList.add("is-error");
+      textEl.classList.remove("placeholder");
+      textEl.textContent = `Translation failed (${err.message}). The English version above is unaffected.`;
+    }
   });
-  const data = await response.json();
+  pumpTranslations();
+}
+
+async function pumpTranslations() {
+  if (translating) return;
+  translating = true;
+  updatePrintButton();
+  while (translationQueue.length > 0) {
+    await translationQueue.shift()();
+  }
+  translating = false;
+  updatePrintButton();
+}
+
+async function translateText(text) {
+  let response;
+  try {
+    response = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, target_lang: targetLang }),
+    });
+  } catch {
+    throw new Error("server unreachable");
+  }
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.detail || response.statusText);
+    throw new Error(data.detail || `server error ${response.status}`);
   }
   return data.translated_text;
 }
 
-function buildGlossaryTerms(matches) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "glossary-terms";
-
-  const label = document.createElement("span");
-  label.className = "glossary-label";
-  label.textContent = "Related terms:";
-  wrapper.appendChild(label);
-
-  for (const match of matches) {
-    const term = document.createElement("span");
-    term.className = "glossary-term";
-    term.textContent = match.term;
-    term.title = match.definition; // native tooltip on hover
-    wrapper.appendChild(term);
-  }
-
-  return wrapper;
-}
-
-function buildReadabilityPill(readability) {
-  const pill = document.createElement("span");
-  const delta = readability.delta;
-  pill.className = "readability-pill" + (delta > 0 ? " improved" : delta < 0 ? " worsened" : "");
-  const arrow = delta > 0 ? "↓" : delta < 0 ? "↑" : "=";
-  pill.textContent = `Grade ${readability.original_grade} ${arrow} ${readability.simplified_grade}`;
-  pill.title = `Flesch-Kincaid grade level: ${readability.original_grade} (original) -> ${readability.simplified_grade} (simplified)`;
-  return pill;
+function updatePrintButton() {
+  printBtn.disabled = !(jobFinished && !translating && translationQueue.length === 0 && renderedIds.size > 0);
 }

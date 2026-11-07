@@ -54,3 +54,132 @@ def test_unsupported_extension_raises():
 def test_text_passthrough():
     clauses = parse_document("pasted.txt", b"1. First clause.\n\n2. Second clause.")
     assert len(clauses) == 2
+
+
+def _docx_bytes(build) -> bytes:
+    import io
+
+    import docx
+
+    document = docx.Document()
+    build(document)
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def test_docx_auto_numbered_clauses_are_split_and_tables_are_read():
+    def build(d):
+        d.add_paragraph("EMPLOYMENT AGREEMENT")
+        d.add_paragraph("Salary: paid monthly.", style="List Number")
+        table = d.add_table(rows=1, cols=2)
+        table.cell(0, 0).text = "Annual salary"
+        table.cell(0, 1).text = "INR 12,00,000"
+        d.add_paragraph("Termination: 60 days notice.", style="List Number")
+
+    clauses = parse_document("contract.docx", _docx_bytes(build))
+
+    assert [c.heading for c in clauses] == ["Preamble", "1. Salary: paid monthly.", "2. Termination: 60 days notice."]
+    assert "Annual salary | INR 12,00,000" in clauses[1].text
+
+
+def test_docx_bullets_are_not_numbered():
+    def build(d):
+        d.add_paragraph("Duties", style="List Bullet")
+        d.add_paragraph("More duties", style="List Bullet")
+
+    text = extract("x.docx", _docx_bytes(build))
+    assert text == "• Duties\n\n• More duties"
+
+
+def _pdf(pages: list[list[tuple[float, float, str]]]) -> bytes:
+    """Each page is a list of (x, y, line) placed at that position."""
+    import fitz
+
+    doc = fitz.open()
+    for lines in pages:
+        page = doc.new_page()
+        for x, y, line in lines:
+            page.insert_text((x, y), line, fontsize=11)
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
+def test_pdf_running_headers_footers_and_page_numbers_are_removed():
+    pages = [
+        [
+            (72, 30, "ACME Ltd - Confidential"),
+            (72, 100, "1. Rent"),
+            (72, 116, "The Tenant pays rent monthly."),
+            (280, 820, "Page 1 of 2"),
+        ],
+        [
+            (72, 30, "ACME Ltd - Confidential"),
+            (72, 100, "2. Term"),
+            (72, 116, "This lasts one year."),
+            (280, 820, "Page 2 of 2"),
+        ],
+    ]
+    text = extract("lease.pdf", _pdf(pages))
+
+    assert "Confidential" not in text
+    assert "Page" not in text
+    clauses = parse_document("lease.pdf", _pdf(pages))
+    assert [c.text for c in clauses] == [
+        "1. Rent\nThe Tenant pays rent monthly.",
+        "2. Term\nThis lasts one year.",
+    ]
+
+
+def test_pdf_right_aligned_line_stays_in_reading_order_on_a_single_column_page():
+    pages = [[
+        (72, 100, "1. Payment"),
+        (72, 116, "The fee is due on the first day of each month and is paid by bank transfer."),
+        (400, 150, "Dated: 1 March 2026"),
+        (72, 190, "2. Notice"),
+        (72, 206, "Notices must be given in writing to the address above."),
+    ]]
+    text = extract("contract.pdf", _pdf(pages))
+
+    assert text.index("Dated: 1 March 2026") < text.index("2. Notice")
+
+
+def test_pdf_over_the_page_limit_is_rejected(monkeypatch):
+    from app.parsing import extract as extract_module
+
+    monkeypatch.setattr(extract_module, "MAX_PDF_PAGES", 2)
+    pages = [[(72, 100, f"{n}. Clause {n}")] for n in range(1, 4)]
+
+    with pytest.raises(ExtractionError, match="limit is 2"):
+        extract("long.pdf", _pdf(pages))
+
+
+def test_page_furniture_is_removed():
+    from app.parsing.extract import strip_page_furniture
+
+    footer = "Source: ACME CORP, 8-K, 3/20/2020"
+    text = (
+        f"1. Rent\nPay monthly.\n\n{footer}\n\n2\n\n"
+        "(Translation, for reference only)   2. Term\nOne year.   - 1 -\n\n"
+        f"Confidential\n\n{footer}\n\n- 3 -\n\n(Translation, for reference only)\n\nConfidential\n\n"
+        f"3. Notice\nIn writing.\n\n{footer}\n\nConfidential\n\n(Translation, for reference only)   4. Law\nIndian law.\n\nPage 4 of 4"
+    )
+    cleaned = strip_page_furniture(text)
+
+    for debris in ("Source:", "Confidential", "Translation", "- 1 -", "- 3 -", "Page 4"):
+        assert debris not in cleaned
+    assert [line for line in cleaned.splitlines() if line.strip()] == [
+        "1. Rent", "Pay monthly.", "2. Term", "One year.", "3. Notice", "In writing.", "4. Law", "Indian law.",
+    ]
+
+
+def test_repeated_content_and_clause_numbers_are_not_furniture():
+    from app.parsing.extract import strip_page_furniture
+
+    text = (
+        "1    PURPOSE  OF  THE  AGREEMENT\n\n2    PAYMENT\n\nInstalment 1: Rs 10,000\nInstalment 2: Rs 10,000\n"
+        "Instalment 3: Rs 10,000\n\n(a) Not applicable.\n(b) Not applicable.\nNot applicable.\nNot applicable.\n"
+        "Not applicable.\n\nName:  Jim Ammons\nName:  Matthias Hellmann\nName:  Ravi Kumar"
+    )
+    assert strip_page_furniture(text) == text
