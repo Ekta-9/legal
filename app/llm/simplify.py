@@ -97,6 +97,12 @@ def build_prompt(batch: list[Clause], problems: dict[str, str] | None = None) ->
     )
 
 
+def _request_too_large(error: Exception) -> bool:
+    """Groq's 413: one request larger than the per-minute token limit. Waiting
+    never helps; a smaller request does."""
+    return getattr(error, "status_code", None) == 413
+
+
 def _parse_self_check(value: object) -> bool:
     """A missing or unreadable flag counts as flagged: the badge is the safe
     default when we can't tell. (`bool("false")` would be True, so strings
@@ -224,7 +230,17 @@ async def simplify_clauses(
     batches = batch_items(to_process, batch_size or settings.groq_batch_size)
 
     async def simplify_batch(batch: list[Clause]) -> tuple[list[SimplifiedClause], list[str]]:
-        raw = await client.complete(build_prompt(batch))
+        try:
+            raw = await client.complete(build_prompt(batch))
+        except Exception as e:
+            if not _request_too_large(e) or len(batch) == 1:
+                raise
+            # dense clauses: halve the batch until each request fits (one after the other, not
+            # at once, since the per-minute token limit is what refused it)
+            half = len(batch) // 2
+            first, first_dropped = await simplify_batch(batch[:half])
+            second, second_dropped = await simplify_batch(batch[half:])
+            return first + second, first_dropped + second_dropped
         simplified, dropped = parse_batch_response(raw, batch)
         for _ in range(DROPPED_MAX_RETRIES):
             if not dropped:

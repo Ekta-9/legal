@@ -216,3 +216,42 @@ async def test_invalid_json_from_the_model_is_retried_but_other_bad_requests_are
     with pytest.raises(BadRequestError):
         await GroqClient(call_fn=always_bad, sleep_fn=no_sleep).complete("prompt")
     assert attempts == 1
+
+
+class _FakeCompletions:
+    """Stands in for AsyncGroq().chat.completions: 413 above `limit` output tokens."""
+
+    def __init__(self, limit: int):
+        self.limit = limit
+        self.max_tokens_seen = []
+
+    async def create(self, **kwargs):
+        from types import SimpleNamespace
+
+        from groq import APIStatusError
+
+        self.max_tokens_seen.append(kwargs["max_completion_tokens"])
+        if kwargs["max_completion_tokens"] > self.limit:
+            raise _error_with_status(APIStatusError, 413)
+        message = SimpleNamespace(content='{"results": []}')
+        return SimpleNamespace(choices=[SimpleNamespace(finish_reason="stop", message=message)])
+
+
+@pytest.mark.asyncio
+async def test_request_too_large_is_retried_once_with_a_smaller_output_allowance(monkeypatch):
+    from types import SimpleNamespace
+
+    import app.llm.groq_client as groq_client
+    from app.constants import GROQ_MAX_COMPLETION_TOKENS, GROQ_REDUCED_COMPLETION_TOKENS
+
+    completions = _FakeCompletions(limit=GROQ_REDUCED_COMPLETION_TOKENS)
+    monkeypatch.setattr(groq_client, "AsyncGroq", lambda **_: SimpleNamespace(chat=SimpleNamespace(completions=completions)))
+    call = groq_client._default_call_fn("key", "model")
+
+    assert await call("prompt") == '{"results": []}'
+    assert completions.max_tokens_seen == [GROQ_MAX_COMPLETION_TOKENS, GROQ_REDUCED_COMPLETION_TOKENS]
+
+    completions.limit = 0  # still too large: raised, so the caller can halve the batch
+    with pytest.raises(Exception) as raised:
+        await call("prompt")
+    assert raised.value.status_code == 413

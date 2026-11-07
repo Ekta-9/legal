@@ -3,7 +3,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-from groq import APIConnectionError, AsyncGroq, BadRequestError, InternalServerError, RateLimitError
+from groq import APIConnectionError, APIStatusError, AsyncGroq, BadRequestError, InternalServerError, RateLimitError
 
 from app.config import settings
 from app.constants import (
@@ -12,6 +12,7 @@ from app.constants import (
     GROQ_MAX_COMPLETION_TOKENS,
     GROQ_MAX_RATE_LIMIT_RETRIES,
     GROQ_MAX_RETRIES,
+    GROQ_REDUCED_COMPLETION_TOKENS,
     GROQ_TEMPERATURE,
     GROQ_TIMEOUT_SECONDS,
 )
@@ -48,18 +49,32 @@ def _default_call_fn(api_key: str | None, model: str | None) -> CallFn:
     )
     resolved_model = model or settings.groq_model
 
-    async def call(prompt: str) -> str:
-        response = await client.chat.completions.create(
+    async def create(prompt: str, max_tokens: int):
+        return await client.chat.completions.create(
             model=resolved_model,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
             temperature=GROQ_TEMPERATURE,
-            max_completion_tokens=GROQ_MAX_COMPLETION_TOKENS,
+            max_completion_tokens=max_tokens,
         )
+
+    async def call(prompt: str) -> str:
+        max_tokens = GROQ_MAX_COMPLETION_TOKENS
+        try:
+            response = await create(prompt, max_tokens)
+        except APIStatusError as e:
+            # 413: Groq counts the output allowance toward the per-minute token limit, so even one
+            # clause can be "too large" on the free tier. A smaller allowance fits; if it still
+            # doesn't, the caller halves the batch (app/llm/simplify.py).
+            if e.status_code != 413:
+                raise
+            max_tokens = GROQ_REDUCED_COMPLETION_TOKENS
+            logger.warning("Groq request too large; retrying with a %d-token output allowance", max_tokens)
+            response = await create(prompt, max_tokens)
         choice = response.choices[0]
         if choice.finish_reason == "length":
             # the JSON is cut off; parse_batch_response reports its clauses as dropped and they are re-requested
-            logger.warning("Groq response hit the %d-token limit and was truncated", GROQ_MAX_COMPLETION_TOKENS)
+            logger.warning("Groq response hit the %d-token limit and was truncated", max_tokens)
         return choice.message.content or ""
 
     return call

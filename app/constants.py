@@ -10,6 +10,7 @@ GROQ_TIMEOUT_SECONDS = 60.0
 GROQ_TEMPERATURE = 0.2  # low: faithful rewording, not creative variation
 # gpt-oss counts its reasoning tokens against this cap too; 6 clauses with context fit with room to spare
 GROQ_MAX_COMPLETION_TOKENS = 8192
+GROQ_REDUCED_COMPLETION_TOKENS = 4096  # after a 413 "request too large": the output allowance counts toward the free tier's per-minute limit
 
 # Response handling (flagged clauses get one retry in app/llm/verify.py)
 DROPPED_MAX_RETRIES = 1  # re-ask once for clauses missing from the model's response, then report them as failed

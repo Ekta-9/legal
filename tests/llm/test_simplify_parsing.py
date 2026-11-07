@@ -327,3 +327,40 @@ async def test_result_that_lost_a_number_is_flagged_and_not_cached(tmp_path):
 
 def test_prompt_asks_for_every_number_to_be_kept():
     assert "Keep every number" in build_prompt(CLAUSES)
+
+
+class TooLarge(Exception):
+    status_code = 413  # Groq: one request is bigger than the per-minute token limit
+
+
+class RefusesMoreThan:
+    """Answers batches of up to `limit` clauses; raises a 413 for bigger ones."""
+
+    def __init__(self, limit):
+        self.limit = limit
+        self.sizes = []
+
+    async def complete(self, prompt):
+        items = json.loads(prompt.split("Clauses:\n", 1)[1].split("\n\nRespond", 1)[0])
+        self.sizes.append(len(items))
+        if len(items) > self.limit:
+            raise TooLarge()
+        return json.dumps({"results": [{"clause_id": c["clause_id"], "simplified": "ok", "self_check": False} for c in items]})
+
+
+@pytest.mark.asyncio
+async def test_a_batch_too_large_for_one_request_is_halved_until_it_fits():
+    clauses = [Clause(id=f"clause_{i}", text=f"Clause {i} text.") for i in range(1, 7)]
+    client = RefusesMoreThan(2)
+    simplified, dropped = await simplify_clauses(clauses, client, batch_size=6)
+    assert dropped == []
+    assert sorted(s.id for s in simplified) == sorted(c.id for c in clauses)
+    assert client.sizes == [6, 3, 1, 2, 3, 1, 2]
+
+
+@pytest.mark.asyncio
+async def test_a_single_clause_too_large_is_reported_not_retried_forever():
+    errors = []
+    simplified, dropped = await simplify_clauses(CLAUSES[:1], RefusesMoreThan(0), on_batch_error=errors.append)
+    assert simplified == [] and dropped == ["clause_1"]
+    assert isinstance(errors[0], TooLarge)
