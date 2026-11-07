@@ -10,7 +10,7 @@ from app.routers import documents, results, translate
 # Logs carry job ids, counts and errors, never document text.
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-app = FastAPI(title="Legal Document Simplifier")
+app = FastAPI(title="Saral")
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 

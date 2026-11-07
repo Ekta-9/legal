@@ -1,6 +1,6 @@
-# Legal Document Simplifier
+# Saral
 
-Upload a legal contract and get each clause rewritten in plain English, shown beside the original so you can check every line against the source.
+Saral (Hindi: "simple") is a plain-language contract reader. Upload a legal contract and get each clause rewritten in plain English, shown beside the original so you can check every line against the source.
 
 > **Not legal advice.** The plain-English versions are written by an AI model. They can be wrong or leave things out. Always read the original of any clause that matters to you.
 
