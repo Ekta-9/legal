@@ -52,6 +52,7 @@ GROQ_API_KEY=your-key-here
 uvicorn app.main:app --reload
 ```
 
+
 Open <http://127.0.0.1:8000>. The API and the frontend are served from the same address.
 
 If you choose a translation, the NLLB model (~2.4 GB) is downloaded from Hugging Face on first use.
@@ -76,6 +77,7 @@ To compare Groq models on the hand-written evaluation contracts (uses your quota
 ```bash
 python -m tests.eval.run_eval --model openai/gpt-oss-20b --model openai/gpt-oss-120b
 ```
+
 
 It reports, per model, how many clauses came back, kept every number, and kept the required concepts (exceptions, conditions, who pays), plus the reading grade before and after. These are keyword checks, not a review of legal accuracy.
 
