@@ -197,7 +197,6 @@ function buildRow(clause, index) {
   const plain = el("div", "clause-plain");
   plain.appendChild(el("p", "cell-label mono", "Plain English"));
   plain.appendChild(el("p", "clause-text", "Processing"));
-  plain.appendChild(el("div", "clause-meta mono"));
   plain.appendChild(el("div", "clause-terms"));
   const context = el("div", "clause-terms clause-context");
   fillContext(context, clause.context);
@@ -308,10 +307,6 @@ function fillRow(clause) {
     );
   }
 
-  if (clause.readability) {
-    plain.querySelector(".clause-meta").appendChild(buildGrade(clause.readability));
-  }
-
   if (clause.glossary_matches && clause.glossary_matches.length > 0) {
     fillTerms(plain.querySelector(".clause-terms"), clause.glossary_matches);
   }
@@ -330,17 +325,6 @@ function markNotProcessed(row) {
   row.classList.add("is-missing");
   row.querySelector(".clause-plain .clause-text").textContent =
     "Not processed: the job stopped before reaching this clause.";
-}
-
-function buildGrade(readability) {
-  const delta = readability.delta;
-  const grade = el("span", "grade" + (delta > 0 ? " improved" : delta < 0 ? " worsened" : ""));
-  grade.title =
-    "Flesch-Kincaid reading grade: roughly the years of schooling needed to read the text. " +
-    "It measures sentence and word length only, not whether the meaning is correct.";
-  grade.append("Reading grade ");
-  grade.appendChild(el("strong", "", `${readability.original_grade} → ${readability.simplified_grade}`));
-  return grade;
 }
 
 function fillTerms(container, matches) {

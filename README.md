@@ -14,7 +14,7 @@ Saral (Hindi: "simple") is a plain-language contract reader. Upload a legal cont
 - **Numbers check**: every amount, date, deadline and section number in the original must also appear in the plain version. This is checked in code, not by the model. A clause that loses one is retried once, then marked with the missing numbers.
 - **Qualifier check**: an override ("notwithstanding anything…"), a condition ("if capable of remedy"), a prohibition ("shall not") or an exclusivity ("sole remedy") in the original must survive in the plain version, and "except as otherwise stated" in place of "notwithstanding" counts as reversing it. Checked in code; a clause that fails is retried once with the problem named, then marked.
 - **Nothing silently disappears**: a clause the model fails to return is retried once, then shown as "not simplified" with its original text.
-- **Readability score** (Flesch-Kincaid grade, before → after) per clause.
+- **Readability score** (Flesch-Kincaid grade, before → after) per clause, returned by the API and used by the evaluation; not shown on the page.
 - **Glossary**: plain definitions of general legal terms (indemnification, force majeure, termination for cause, …) shown only when the clause actually contains the term or the concept it names — matched with hand-written patterns, no AI.
 - **Hindi / Marathi translation** of the plain-English text by the same Groq model, shown beside the English. Every number in the English must appear in the translation (checked in code, retried once). Not reviewed for legal accuracy. `TRANSLATION_BACKEND=local` uses a local NLLB model instead (needs `requirements-translation.txt`; slow on CPU, and weaker in Marathi).
 

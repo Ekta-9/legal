@@ -863,26 +863,6 @@ main:has(> .data-note:last-child) {
   color: var(--warn);
 }
 
-.clause-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 20px;
-  margin: 16px 0 0;
-  color: var(--muted);
-}
-
-.grade strong {
-  font-weight: 700;
-}
-
-.grade.improved strong {
-  color: var(--good);
-}
-
-.grade.worsened strong {
-  color: var(--warn);
-}
-
 .clause-terms {
   display: flex;
   flex-wrap: wrap;
