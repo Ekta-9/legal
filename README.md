@@ -1,13 +1,3 @@
----
-title: Saral
-emoji: 📄
-colorFrom: blue
-colorTo: gray
-sdk: docker
-app_port: 7860
-short_description: Contracts rewritten clause by clause in plain English
----
-
 # Saral
 
 Saral (Hindi: "simple") is a plain-language contract reader. Upload a legal contract and get each clause rewritten in plain English, shown beside the original so you can check every line against the source.
@@ -26,7 +16,7 @@ Saral (Hindi: "simple") is a plain-language contract reader. Upload a legal cont
 - **Nothing silently disappears**: a clause the model fails to return is retried once, then shown as "not simplified" with its original text.
 - **Readability score** (Flesch-Kincaid grade, before → after) per clause.
 - **Glossary**: plain definitions of general legal terms (indemnification, force majeure, termination for cause, …) shown only when the clause actually contains the term or the concept it names — matched with hand-written patterns, no AI.
-- **Hindi / Marathi translation (experimental)** of the plain-English text with a local NLLB model. It is slow on CPU and has not been reviewed for legal accuracy.
+- **Hindi / Marathi translation** of the plain-English text by the same Groq model, shown beside the English. Every number in the English must appear in the translation (checked in code, retried once). Not reviewed for legal accuracy. `TRANSLATION_BACKEND=local` uses a local NLLB model instead (needs `requirements-translation.txt`; slow on CPU, and weaker in Marathi).
 
 **Not supported:** scanned PDFs (no OCR), and headers, footers and footnotes in DOCX files. PDF page numbers and repeated page headers and footers are removed, but a footnote or a one-off note in the page margin can still end up inside a clause.
 
@@ -46,7 +36,10 @@ cd legal
 python -m venv .venv
 .venv\Scripts\activate          # Windows; on macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
+pip install -r requirements-translation.txt   # optional: only for TRANSLATION_BACKEND=local (PyTorch, ~3 GB of RAM in use)
 ```
+
+Translation uses Groq by default, so the second line is only needed for the local model.
 
 Get a free API key at <https://console.groq.com/keys> and create a file named `.env` in the project root:
 
@@ -65,18 +58,15 @@ uvicorn app.main:app --reload
 
 Open <http://127.0.0.1:8000>. The API and the frontend are served from the same address.
 
-If you choose a translation, the NLLB model (~2.4 GB) is downloaded from Hugging Face on first use.
+With `TRANSLATION_BACKEND=local`, the NLLB model (~2.4 GB) is downloaded from Hugging Face the first time a translation is asked for.
 
 ## Deploying
 
-The `Dockerfile` runs Saral on [Hugging Face Spaces](https://huggingface.co/spaces) (Docker SDK; the free CPU tier has the memory the translation model needs). The block at the top of this README is the Space's configuration.
+**Render (free).** `render.yaml` is a Render blueprint: it installs `requirements.txt` and starts one worker. Translation goes through Groq, so the free tier's 512 MB of RAM is enough. In the Render dashboard choose *New → Blueprint*, connect this repository, and enter `GROQ_API_KEY` when asked. The free service sleeps after about 15 minutes without visitors; the next visit wakes it in about a minute.
 
-1. Create a Space with the **Docker** SDK and add a secret `GROQ_API_KEY` under *Settings → Variables and secrets*.
-2. Push this repository to it: `git remote add space https://huggingface.co/spaces/<user>/saral`, then `git push space main` (use a Hugging Face access token with write permission as the password).
+**Docker.** `docker build -t saral .` then `docker run -p 7860:7860 -e GROQ_API_KEY=... saral`.
 
-It also runs anywhere Docker does: `docker build -t saral .` then `docker run -p 7860:7860 -e GROQ_API_KEY=... saral`.
-
-Everyone using a deployment shares its Groq quota, and results and the clause cache are cleared when the container restarts. Run a single worker: jobs are kept in memory.
+Everyone using a deployment shares its Groq quota, and results and the clause cache are cleared when the server restarts. Run a single worker: jobs are kept in memory.
 
 ## Tests
 
@@ -122,7 +112,7 @@ app/
 ├── llm/               Groq client, prompt, response parsing, retry logic
 ├── cache/             SQLite clause cache
 ├── scoring/           readability
-└── translation/       NLLB translation
+└── translation/       Groq translation (default) and the local NLLB model
 frontend/              plain HTML/CSS/JS
 tests/                 unit, llm, integration, live (opt-in)
 ```

@@ -1,0 +1,6 @@
+# Optional: Hindi/Marathi translation with a local NLLB model (~3 GB of RAM in use).
+# Without these the app runs and simply doesn't offer translation (e.g. Render's free tier).
+#   pip install -r requirements.txt -r requirements-translation.txt
+transformers==4.47.1
+sentencepiece==0.2.0
+torch==2.13.0

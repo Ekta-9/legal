@@ -71,6 +71,17 @@ function pickedValue(select, input) {
   return select.value === OTHER ? input.value.trim() : select.value;
 }
 
+// Translation is optional on the server (small hosts run without it): hide the Language step and
+// its showcase card there, so the page never offers what the server can't do
+fetch("/api/config")
+  .then((response) => (response.ok ? response.json() : null))
+  .then((config) => {
+    if (!config || config.translation) return;
+    langSelect.value = "en";
+    for (const id of ["language-row", "language-card"]) document.getElementById(id)?.remove();
+  })
+  .catch(() => {});
+
 function selectedSource() {
   return form.querySelector('input[name="source"]:checked').value;
 }

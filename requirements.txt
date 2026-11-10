@@ -19,7 +19,4 @@ groq==0.15.0
 textstat==0.7.4
 setuptools<81  # textstat 0.7.4 needs pkg_resources, which newer setuptools dropped
 
-# Phase 7 — translation (optional satellite)
-transformers==4.47.1
-sentencepiece==0.2.0
-torch==2.13.0
+# Hindi/Marathi translation is optional: see requirements-translation.txt

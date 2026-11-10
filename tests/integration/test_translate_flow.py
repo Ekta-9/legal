@@ -79,3 +79,74 @@ async def test_translate_crash_returns_500_without_internal_details(async_client
 
     assert response.status_code == 500
     assert "0xdeadbeef" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_local_backend_without_its_packages_is_reported_unavailable(async_client, monkeypatch):
+    import app.translation.backend as backend
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "translation_backend", "local")
+    monkeypatch.setattr(backend.importlib.util, "find_spec", lambda name: None)  # no torch installed
+    assert (await async_client.get("/api/config")).json() == {"translation": False}
+
+    response = await async_client.post("/api/translate", json={"text": "Hello", "target_lang": "hi"})
+    assert response.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_groq_backend_needs_only_the_groq_key(async_client, monkeypatch):
+    import app.translation.backend as backend
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "translation_backend", "groq")
+    monkeypatch.setattr(backend.importlib.util, "find_spec", lambda name: None)  # as on Render: no torch
+    monkeypatch.setattr(settings, "groq_api_key", "test-key")
+    assert (await async_client.get("/api/config")).json() == {"translation": True}
+    monkeypatch.setattr(settings, "groq_api_key", "")
+    assert (await async_client.get("/api/config")).json() == {"translation": False}
+
+
+@pytest.mark.asyncio
+async def test_translation_can_be_switched_off(async_client, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "groq_api_key", "test-key")
+    monkeypatch.setattr(settings, "translation_enabled", False)
+    assert (await async_client.get("/api/config")).json() == {"translation": False}
+
+
+@pytest.mark.asyncio
+async def test_groq_translation_through_the_endpoint(async_client, monkeypatch):
+    import json
+
+    from app.config import settings
+    from app.jobs import pipeline
+
+    class FakeGroq:
+        async def complete(self, prompt):
+            return json.dumps({"translation": "किरायेदार को हर महीने Rs. 22,000 देने होंगे।"})
+
+    monkeypatch.setattr(settings, "translation_backend", "groq")
+    pipeline.set_client(FakeGroq())
+    try:
+        response = await async_client.post("/api/translate", json={"text": "The Tenant must pay Rs. 22,000 every month.", "target_lang": "hi"})
+    finally:
+        pipeline.set_client(None)
+    assert response.status_code == 200
+    assert response.json() == {"translated_text": "किरायेदार को हर महीने Rs. 22,000 देने होंगे।"}
+
+
+@pytest.mark.asyncio
+async def test_daily_limit_during_translation_says_the_server_is_busy(async_client):
+    import httpx
+    from groq import RateLimitError
+
+    async def limited(text, target_lang):
+        response = httpx.Response(429, request=httpx.Request("POST", "https://api.groq.com"))
+        raise RateLimitError("tokens per day (TPD) ... Please try again in 4m10s.", response=response, body=None)
+
+    translate_router.set_translate_fn(limited)
+    response = await async_client.post("/api/translate", json={"text": "Hello", "target_lang": "hi"})
+    assert response.status_code == 503
+    assert response.json()["detail"] == "The server is busy. Please try again in about 5 minutes."

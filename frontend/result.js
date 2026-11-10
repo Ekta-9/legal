@@ -318,7 +318,7 @@ function fillRow(clause) {
 
   if (targetLang !== "en") {
     const box = plain.querySelector(".translation");
-    box.appendChild(el("p", "translation-label mono", `${LANGUAGES[targetLang]} / experimental machine translation, not reviewed`));
+    box.appendChild(el("p", "translation-label mono", `${LANGUAGES[targetLang]} / AI translation, not reviewed`));
     const text = el("p", "translation-text placeholder", "Queued for translation");
     box.appendChild(text);
     enqueueTranslation(clause.simplified, box, text);

@@ -1,0 +1,16 @@
+# Render blueprint: Saral on the free tier. Simplification and Hindi/Marathi translation both go
+# through Groq, so only requirements.txt is installed and 512 MB of RAM is enough.
+services:
+  - type: web
+    name: saral
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # one worker: jobs are kept in memory, so a second worker would not see them
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: GROQ_API_KEY
+        sync: false # asked for when the blueprint is created; never stored in the repo

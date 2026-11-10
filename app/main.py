@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from app.routers import documents, results, translate
+from app.translation.backend import translation_available
 
 # Uvicorn only sets up its own loggers; without this, app.* INFO logs go nowhere.
 # Logs carry job ids, counts and errors, never document text.
@@ -18,6 +19,12 @@ FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/config")
+def config() -> dict[str, bool]:
+    """What this server offers, so the page only shows what works here."""
+    return {"translation": translation_available()}
 
 
 @app.middleware("http")
